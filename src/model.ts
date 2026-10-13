@@ -8,6 +8,7 @@ export const symbolSchema = z.object({
   start: z.number(),
   end: z.number(),
   line: z.number(),
+  signature: z.string(),
 });
 export type SymbolInfo = z.infer<typeof symbolSchema>;
 export const changeSchema = z.object({

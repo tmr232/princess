@@ -14,7 +14,7 @@ test("compares snapshot structure, including bodies, decorators, nested definiti
   const before = `TITLE = "שלום 🌍"
 
 class Service:
-    def fetch(self, key):
+    def fetch(self, key: str = "a:b") -> str | None:
         if key:
             return key
         return None
@@ -36,6 +36,10 @@ def stable(x):
 `;
   const after = before
     .replace('TITLE = "שלום 🌍"', 'TITLE = "שלום 🌍!"')
+    .replace(
+      'def fetch(self, key: str = "a:b") -> str | None:',
+      'async def fetch(\n        self,\n        key: str = "c:d",\n        *, strict: bool = False,\n    ) -> str | None:',
+    )
     .replace("return key", "return key.strip()")
     .replace("@cache(1)", "@cache(2)")
     .replace("return y + 1", "return y + 3")
@@ -97,6 +101,20 @@ def stable(x):
     expect(before.slice(decorator.before!.start, decorator.before!.end)).toBe(
       "@cache(1)\ndef decorated(x):\n    return x",
     );
+    const fetch = file.changes.find((c) => c.name === "fetch")!;
+    expect(fetch.before!.signature).toBe(
+      'def fetch(self, key: str = "a:b") -> str | None:',
+    );
+    expect(fetch.after!.signature).toBe(
+      'async def fetch(\n        self,\n        key: str = "c:d",\n        *, strict: bool = False,\n    ) -> str | None:',
+    );
+    expect(decorator.before!.signature).toBe("def decorated(x):");
+    expect(file.changes.find((c) => c.name === "added")!.after!.signature).toBe(
+      "def added(x):",
+    );
+    expect(
+      file.changes.find((c) => c.name === "removed")!.before!.signature,
+    ).toBe("def removed(x):");
     expect(sources.get(file.id)).toEqual({ before, after });
     expect(file.changes.find((c) => c.name === "inner")!.parent).toBe("outer");
     expect(file.changes.find((c) => c.name === "added")!.before).toBeNull();

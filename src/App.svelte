@@ -168,6 +168,13 @@
                   : ""}</span
               >
             </div>
+            {#if pane.symbol}
+              <pre
+                class="signature"
+                aria-label={`${pane.title} function signature`}><code
+                  >{pane.symbol.signature}</code
+                ></pre>
+            {/if}
             <div class="graph-area">
               {#if busy}<div class="empty">Generating function graph…</div>
               {:else if pane.svg}{#key pane.svg}<GraphPane
@@ -403,6 +410,23 @@
     font-family: monospace;
     color: #8a98aa;
     font-size: 11px;
+  }
+  .signature {
+    margin: 0;
+    padding: 14px 18px;
+    max-height: 180px;
+    flex-shrink: 0;
+    overflow: auto;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    font:
+      12px/1.6 ui-monospace,
+      SFMono-Regular,
+      Consolas,
+      monospace;
+    color: #42526a;
+    background: #f7f9fc;
+    border-bottom: 1px solid #e9edf2;
   }
   .graph-area {
     flex: 1;

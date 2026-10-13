@@ -102,6 +102,10 @@ async function analyze(source: string): Promise<SymbolInfo[]> {
         start: range.startIndex,
         end: range.endIndex,
         line: node.startPosition.row + 1,
+        signature: source.slice(
+          node.startIndex,
+          node.children.find((child) => child?.type === ":")!.endIndex,
+        ),
       });
     }
     for (const child of node.namedChildren) if (child) visit(child, owner);
