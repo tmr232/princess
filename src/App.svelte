@@ -12,6 +12,7 @@
   import FunctionGraphs from "./FunctionGraphs.svelte";
   type View = "graph" | "code" | "functions" | "combined";
   let view: View = "graph";
+  let singleView: Exclude<View, "functions"> = "graph";
   let functionsOpened = false;
   let returnToFunctions = false;
   let backButton: HTMLButtonElement;
@@ -88,12 +89,15 @@
     if (next === "functions") {
       functionsOpened = true;
       returnToFunctions = false;
+    } else {
+      singleView = next;
     }
     if (selected) void select(fileId, filePath, selected);
   }
   function focusFunction(id: string, path: string, change: Change) {
     returnToFunctions = true;
     view = "combined";
+    singleView = "combined";
     void select(id, path, change);
     void tick().then(() => backButton?.focus());
   }
@@ -257,48 +261,65 @@
         </h1>
       </div>
       <div class="view-controls">
-        {#if returnToFunctions && view !== "functions"}
-          <button
-            class="back-functions"
-            bind:this={backButton}
-            onclick={() => setView("functions")}
-            >← Back to all function graphs</button
-          >
-        {/if}
-        <div class="view-toggle" role="group" aria-label="Review view">
-          <button
-            class:active={view === "graph"}
-            aria-pressed={view === "graph"}
-            onclick={() => setView("graph")}>Graph</button
-          >
-          <button
-            class:active={view === "code"}
-            aria-pressed={view === "code"}
-            onclick={() => setView("code")}>Code diff</button
-          >
-          <button
-            class:active={view === "functions"}
-            aria-pressed={view === "functions"}
-            onclick={() => setView("functions")}>All function graphs</button
-          >
-          <button
-            class:active={view === "combined"}
-            aria-pressed={view === "combined"}
-            onclick={() => setView("combined")}>Code + graph</button
-          >
+        <div class="scope-controls">
+          {#if returnToFunctions && view !== "functions"}
+            <button
+              class="back-functions"
+              bind:this={backButton}
+              onclick={() => setView("functions")}
+              >← Back to all function graphs</button
+            >
+          {/if}
+          <div class="view-toggle" role="group" aria-label="Review scope">
+            <button
+              class:active={view !== "functions"}
+              aria-pressed={view !== "functions"}
+              onclick={() => setView(singleView)}>Single function</button
+            >
+            <button
+              class:active={view === "functions"}
+              aria-pressed={view === "functions"}
+              onclick={() => setView("functions")}>All functions</button
+            >
+          </div>
         </div>
-        {#if view === "code" || view === "combined"}
-          <div class="view-toggle" role="group" aria-label="Diff layout">
-            <button
-              class:active={diffStyle === "split"}
-              aria-pressed={diffStyle === "split"}
-              onclick={() => (diffStyle = "split")}>Side-by-side</button
+        {#if view !== "functions"}
+          <div class="single-controls">
+            <div
+              class="view-toggle"
+              role="group"
+              aria-label="Single function view"
             >
-            <button
-              class:active={diffStyle === "unified"}
-              aria-pressed={diffStyle === "unified"}
-              onclick={() => (diffStyle = "unified")}>Inline</button
-            >
+              <button
+                class:active={view === "graph"}
+                aria-pressed={view === "graph"}
+                onclick={() => setView("graph")}>Graph</button
+              >
+              <button
+                class:active={view === "code"}
+                aria-pressed={view === "code"}
+                onclick={() => setView("code")}>Code diff</button
+              >
+              <button
+                class:active={view === "combined"}
+                aria-pressed={view === "combined"}
+                onclick={() => setView("combined")}>Code + graph</button
+              >
+            </div>
+            {#if view === "code" || view === "combined"}
+              <div class="view-toggle" role="group" aria-label="Diff layout">
+                <button
+                  class:active={diffStyle === "split"}
+                  aria-pressed={diffStyle === "split"}
+                  onclick={() => (diffStyle = "split")}>Side-by-side</button
+                >
+                <button
+                  class:active={diffStyle === "unified"}
+                  aria-pressed={diffStyle === "unified"}
+                  onclick={() => (diffStyle = "unified")}>Inline</button
+                >
+              </div>
+            {/if}
           </div>
         {/if}
       </div>
@@ -667,8 +688,16 @@
   }
   .view-controls {
     display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: flex-end;
+  }
+  .scope-controls,
+  .single-controls {
+    display: flex;
     gap: 14px;
     align-items: center;
+    justify-content: flex-end;
     flex-wrap: wrap;
   }
   .interface-controls {
