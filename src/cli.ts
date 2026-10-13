@@ -58,6 +58,8 @@ try {
           showPrivate: url.searchParams.get("private") === "1",
           showDocstrings: url.searchParams.get("docstrings") === "1",
         };
+        const beforeLines: (number | null)[] = [];
+        const afterLines: (number | null)[] = [];
         return Response.json({
           before:
             source.before === null || (change && !change.before)
@@ -66,6 +68,7 @@ try {
                   source.before,
                   filters,
                   change?.before?.line,
+                  beforeLines,
                 ),
           after:
             source.after === null || (change && !change.after)
@@ -74,7 +77,10 @@ try {
                   source.after,
                   filters,
                   change?.after?.line,
+                  afterLines,
                 ),
+          beforeLines,
+          afterLines,
         });
       }
       const path = resolve(

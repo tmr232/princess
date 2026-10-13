@@ -8,8 +8,33 @@
   export let path: string;
   export let wrap = false;
   export let diffStyle: "split" | "unified" = "split";
+  export let beforeLines: (number | null)[] | undefined = undefined;
+  export let afterLines: (number | null)[] | undefined = undefined;
+  export let beforeStart = 1;
+  export let afterStart = 1;
   let root: HTMLDivElement;
   let oldRoot: HTMLDivElement, newRoot: HTMLDivElement;
+
+  function numberGutters(node: HTMLElement, side?: "before" | "after") {
+    const dom = node.shadowRoot ?? node;
+    dom
+      .querySelectorAll<HTMLElement>("[data-column-number]")
+      .forEach((gutter) => {
+        const content = gutter.querySelector("[data-line-number-content]");
+        if (!content) return;
+        const old = side
+          ? side === "before"
+          : gutter.closest("[data-deletions]") !== null ||
+            gutter.dataset.lineType === "change-deletion" ||
+            after === null;
+        const index = Number(gutter.dataset.columnNumber) - 1;
+        const lines = old ? beforeLines : afterLines;
+        const number = lines
+          ? lines[index]
+          : index + (old ? beforeStart : afterStart);
+        content.textContent = number == null ? "" : String(number);
+      });
+  }
 
   onMount(() => {
     // FileDiff has no hunks for identical text; keep both revisions readable.
@@ -20,6 +45,7 @@
           themeType: "light",
           disableFileHeader: true,
           overflow: wrap ? "wrap" : "scroll",
+          onPostRender: (node) => numberGutters(node, i ? "after" : "before"),
         });
         viewer.render({
           file: { name: i ? path : oldPath, contents: before!, lang: "python" },
@@ -35,6 +61,7 @@
       expandUnchanged: true,
       disableFileHeader: true,
       overflow: wrap ? "wrap" : "scroll",
+      onPostRender: (node) => numberGutters(node),
     });
     const oldFile: FileContents | null =
       before === null

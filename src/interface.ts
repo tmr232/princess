@@ -9,7 +9,14 @@ export interface InterfaceOptions {
 export function projectInterface(
   root: Node,
   options: InterfaceOptions,
+  lineNumbers: (number | null)[] = [],
 ): string {
+  type Line = { text: string; line: number | null };
+  const blank: Line = { text: "", line: null };
+  const placeholder = (depth: number): Line => ({
+    text: `${indent(depth)}...`,
+    line: null,
+  });
   const visible = (name: string) =>
     options.showPrivate || !name.startsWith("_") || /^__.*__$/.test(name);
   const indent = (depth: number) => "    ".repeat(depth);
@@ -17,13 +24,10 @@ export function projectInterface(
     const originalIndent = new RegExp(
       `^[ \\t]{0,${node.startPosition.column}}`,
     );
-    return value
-      .split(/\r?\n/)
-      .map(
-        (line, i) =>
-          indent(depth) + (i ? line.replace(originalIndent, "") : line),
-      )
-      .join("\n");
+    return value.split(/\r?\n/).map((line, i) => ({
+      text: indent(depth) + (i ? line.replace(originalIndent, "") : line),
+      line: node.startPosition.row + i + 1,
+    }));
   }
   function header(node: Node, depth: number) {
     const colon = node.children.find((child) => child?.type === ":")!;
@@ -45,15 +49,44 @@ export function projectInterface(
     const statements = node.namedChildren.filter(
       (n): n is Node => !!n && n.type !== "comment",
     );
-    return statements.flatMap((statement, i) =>
+    const groups = statements.map((statement, i) =>
       hasDocstring && i === 0 && isDocstring(statement)
         ? options.showDocstrings
-          ? [text(statement, depth)]
+          ? text(statement, depth)
           : []
         : render(statement, depth),
     );
+    const lines: Line[] = [];
+    let previous = "";
+    for (const [i, group] of groups.entries()) {
+      if (!group.length) continue;
+      const kind = statements[i]!.type;
+      const definition = (kind: string) =>
+        [
+          "decorated_definition",
+          "function_definition",
+          "class_definition",
+        ].includes(kind);
+      const imports = (kind: string) =>
+        [
+          "import_statement",
+          "import_from_statement",
+          "future_import_statement",
+        ].includes(kind);
+      const spacing =
+        imports(previous) && !imports(kind)
+          ? 2
+          : definition(previous) || definition(kind)
+            ? 1
+            : 0;
+      if (lines.length) lines.push(...Array(spacing).fill(blank));
+      else if (depth > 0 && definition(kind)) lines.push(blank);
+      lines.push(...group);
+      previous = kind;
+    }
+    return lines;
   }
-  function assignment(node: Node, depth: number): string[] {
+  function assignment(node: Node, depth: number): Line[] {
     const left = node.childForFieldName("left")!;
     const right = node.childForFieldName("right");
     const annotation = node.childForFieldName("type");
@@ -62,7 +95,7 @@ export function projectInterface(
       annotation &&
       /^(typing\.)?TypeAlias$/.test(annotation.text)
     )
-      return visible(left.text) ? [text(node, depth)] : [];
+      return visible(left.text) ? text(node, depth) : [];
     const names =
       left.type === "identifier"
         ? [left]
@@ -74,14 +107,14 @@ export function projectInterface(
     return [
       ...names
         .filter((name) => visible(name.text))
-        .map(
-          (name) =>
-            `${indent(depth)}${name.text}${annotation ? `: ${annotation.text}` : ""}${right ? " = ..." : ""}`,
-        ),
+        .map((name) => ({
+          text: `${indent(depth)}${name.text}${annotation ? `: ${annotation.text}` : ""}${right ? " = ..." : ""}`,
+          line: name.startPosition.row + 1,
+        })),
       ...(right?.type === "assignment" ? assignment(right, depth) : []),
     ];
   }
-  function render(node: Node, depth: number): string[] {
+  function render(node: Node, depth: number): Line[] {
     if (node.type === "decorated_definition") {
       const definition = node.childForFieldName("definition")!;
       const result = render(definition, depth);
@@ -89,7 +122,7 @@ export function projectInterface(
         ? [
             ...node.namedChildren
               .filter((n) => n?.type === "decorator")
-              .map((n) => text(n!, depth)),
+              .flatMap((n) => text(n!, depth)),
             ...result,
           ]
         : [];
@@ -102,13 +135,13 @@ export function projectInterface(
         node.type === "class_definition"
           ? body(block, depth + 1)
           : options.showDocstrings && first && isDocstring(first)
-            ? [text(first, depth + 1)]
+            ? text(first, depth + 1)
             : [];
       return [
-        header(node, depth),
+        ...header(node, depth),
         ...contents,
         ...(node.type === "function_definition" || !contents.length
-          ? [`${indent(depth + 1)}...`]
+          ? [placeholder(depth + 1)]
           : []),
       ];
     }
@@ -119,10 +152,10 @@ export function projectInterface(
         "future_import_statement",
       ].includes(node.type)
     )
-      return [text(node, depth)];
+      return text(node, depth);
     if (node.type === "type_alias_statement")
       return visible(node.childForFieldName("left")!.text.split("[")[0]!.trim())
-        ? [text(node, depth)]
+        ? text(node, depth)
         : [];
     if (
       node.type === "expression_statement" &&
@@ -148,12 +181,12 @@ export function projectInterface(
       return contents.length ||
         alternatives.some((clause) => clause.lines.length)
         ? [
-            header(node, depth),
-            ...(contents.length ? contents : [`${indent(depth + 1)}...`]),
+            ...header(node, depth),
+            ...(contents.length ? contents : [placeholder(depth + 1)]),
             ...alternatives.flatMap(({ node, lines }) =>
               lines.length
                 ? lines
-                : [header(node, depth), `${indent(depth + 1)}...`],
+                : [...header(node, depth), placeholder(depth + 1)],
             ),
           ]
         : [];
@@ -161,5 +194,6 @@ export function projectInterface(
     return [];
   }
   const lines = root.type === "module" ? body(root, 0) : render(root, 0);
-  return lines.length ? lines.join("\n") + "\n" : "";
+  lineNumbers.push(...lines.map((line) => line.line));
+  return lines.length ? lines.map((line) => line.text).join("\n") + "\n" : "";
 }

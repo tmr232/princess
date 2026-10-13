@@ -203,21 +203,29 @@ def _private():
 print("TOP_LEVEL_IMPLEMENTATION")
 `;
   const publicInterface = `from typing import TYPE_CHECKING
+
+
 if TYPE_CHECKING:
     from models import Base
 LIMIT: int = ...
 public = ...
+
 @decorate("class:default")
 class Public(Base):
     value: str
+
     def __init__(self, value: str):
         ...
+
     @property
     def name(self) -> str:
         ...
+
     class Nested:
+
         def run(self):
             ...
+
 async def fetch(
     key: str = "a:b",
 ) -> str:
@@ -259,10 +267,12 @@ async def fetch(
       classLine,
     ),
   ).toBe(
-    publicInterface.slice(
-      publicInterface.indexOf('@decorate("class:default")'),
-      publicInterface.indexOf("async def fetch"),
-    ),
+    publicInterface
+      .slice(
+        publicInterface.indexOf('@decorate("class:default")'),
+        publicInterface.indexOf("async def fetch"),
+      )
+      .trimEnd() + "\n",
   );
   expect(
     await createInterface(
@@ -301,4 +311,72 @@ try:
 except ImportError:
     ...
 `);
+});
+
+test("interface spacing and line numbers retain source locations across filtered declarations", async () => {
+  const lines: (number | null)[] = [];
+  const source = `import os
+from typing import TypeAlias
+_hidden = 1
+LIMIT: int = 2
+@cache
+def fetch(
+    key: str,
+) -> str:
+    return key
+def _private():
+    return 0
+class Public:
+    value: str
+    def run(self):
+        return self.value
+END = 3
+`;
+  const result = await createInterface(
+    source,
+    { showPrivate: false, showDocstrings: false },
+    undefined,
+    lines,
+  );
+  expect(result).toBe(`import os
+from typing import TypeAlias
+
+
+LIMIT: int = ...
+
+@cache
+def fetch(
+    key: str,
+) -> str:
+    ...
+
+class Public:
+    value: str
+
+    def run(self):
+        ...
+
+END = ...
+`);
+  expect(lines).toEqual([
+    1,
+    2,
+    null,
+    null,
+    4,
+    null,
+    5,
+    6,
+    7,
+    8,
+    null,
+    null,
+    12,
+    13,
+    null,
+    14,
+    null,
+    null,
+    16,
+  ]);
 });

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onMount, tick } from "svelte";
   import {
     reviewSchema,
     type Review,
@@ -9,16 +9,25 @@
   import { graph } from "./graphs";
   import GraphPane from "./GraphPane.svelte";
   import CodeDiff from "./CodeDiff.svelte";
-  let view: "graph" | "code" = "graph";
+  import FunctionGraphs from "./FunctionGraphs.svelte";
+  type View = "graph" | "code" | "functions" | "combined";
+  let view: View = "graph";
+  let functionsOpened = false;
+  let returnToFunctions = false;
+  let backButton: HTMLButtonElement;
   let codeMode: "interface" | "source" = "interface";
   let diffStyle: "split" | "unified" = "split";
   let showPrivate = false,
     showDocstrings = false;
-  let source: { before: string | null; after: string | null } | null = null;
+  let source: {
+    before: string | null;
+    after: string | null;
+    beforeLines?: (number | null)[];
+    afterLines?: (number | null)[];
+  } | null = null;
   let review: Review | null = null;
   let error = "",
-    busy = false,
-    detailed = false;
+    busy = false;
   let selected: Change | null = null,
     fileId = "",
     filePath = "";
@@ -34,7 +43,10 @@
     after = "";
     source = null;
     error = "";
-    if (view === "graph" && change.kind !== "function") {
+    if (
+      view === "functions" ||
+      ((view === "graph" || view === "combined") && change.kind !== "function")
+    ) {
       busy = false;
       return;
     }
@@ -58,12 +70,8 @@
       source = loaded;
       if (view === "code") return;
       const [left, right] = await Promise.all([
-        change.before
-          ? graph(loaded.before, change.before, "before", detailed)
-          : "",
-        change.after
-          ? graph(loaded.after, change.after, "after", detailed)
-          : "",
+        change.before ? graph(loaded.before, change.before, "before") : "",
+        change.after ? graph(loaded.after, change.after, "after") : "",
       ]);
       if (current === generation) {
         before = left;
@@ -75,9 +83,19 @@
       if (current === generation) busy = false;
     }
   }
-  function setView(next: "graph" | "code") {
+  function setView(next: View) {
     view = next;
+    if (next === "functions") {
+      functionsOpened = true;
+      returnToFunctions = false;
+    }
     if (selected) void select(fileId, filePath, selected);
+  }
+  function focusFunction(id: string, path: string, change: Change) {
+    returnToFunctions = true;
+    view = "combined";
+    void select(id, path, change);
+    void tick().then(() => backButton?.focus());
   }
   function setCodeMode(next: "interface" | "source") {
     codeMode = next;
@@ -94,6 +112,9 @@
     const start = text!.lastIndexOf("\n", symbol.start - 1) + 1;
     const end = text!.indexOf("\n", symbol.end);
     return text!.slice(start, end === -1 ? text!.length : end + 1);
+  }
+  function startLine(text: string | null, symbol: SymbolInfo | null) {
+    return text && symbol ? text.slice(0, symbol.start).split("\n").length : 1;
   }
   $: interfaceView =
     view === "code" &&
@@ -222,14 +243,28 @@
   <article>
     <div class="toolbar">
       <div>
-        <div class="breadcrumb">{filePath || "Select a changed function"}</div>
+        <div class="breadcrumb">
+          {view === "functions"
+            ? "All changed files"
+            : filePath || "Select a changed function"}
+        </div>
         <h1>
-          {selected
-            ? ((selected.after ?? selected.before)?.id ?? selected.name)
-            : "Review overview"}
+          {view === "functions"
+            ? "All function graphs"
+            : selected
+              ? ((selected.after ?? selected.before)?.id ?? selected.name)
+              : "Review overview"}
         </h1>
       </div>
       <div class="view-controls">
+        {#if returnToFunctions && view !== "functions"}
+          <button
+            class="back-functions"
+            bind:this={backButton}
+            onclick={() => setView("functions")}
+            >← Back to all function graphs</button
+          >
+        {/if}
         <div class="view-toggle" role="group" aria-label="Review view">
           <button
             class:active={view === "graph"}
@@ -241,8 +276,18 @@
             aria-pressed={view === "code"}
             onclick={() => setView("code")}>Code diff</button
           >
+          <button
+            class:active={view === "functions"}
+            aria-pressed={view === "functions"}
+            onclick={() => setView("functions")}>All function graphs</button
+          >
+          <button
+            class:active={view === "combined"}
+            aria-pressed={view === "combined"}
+            onclick={() => setView("combined")}>Code + graph</button
+          >
         </div>
-        {#if view === "code"}
+        {#if view === "code" || view === "combined"}
           <div class="view-toggle" role="group" aria-label="Diff layout">
             <button
               class:active={diffStyle === "split"}
@@ -256,13 +301,6 @@
             >
           </div>
         {/if}
-        {#if view === "graph"}<label
-            ><input
-              type="checkbox"
-              bind:checked={detailed}
-              onchange={() => selected && select(fileId, filePath, selected)}
-            /> Detailed labels</label
-          >{/if}
       </div>
     </div>
     {#if view === "code" && selected && selected.kind !== "function"}
@@ -298,113 +336,136 @@
       </div>
     {/if}
     {#if error}<div class="error" role="alert">{error}</div>{/if}
-    {#if view === "code" && selected}
-      <div
-        class="diff-revisions"
-        class:one-sided={diffStyle === "unified" ||
-          (source && (codeBefore === null || codeAfter === null))}
-      >
-        {#if source && codeBefore === null}
-          <span
-            >After · {review?.head.slice(0, 8)} · Added {selected.kind} — no previous
-            version</span
-          >
-        {:else if source && codeAfter === null}
-          <span
-            >Before · {review?.base.slice(0, 8)} · Removed {selected.kind} — no next
-            version</span
-          >
-        {:else if diffStyle === "unified"}
-          <span
-            >Before · {review?.base.slice(0, 8)} → After · {review?.head.slice(
-              0,
-              8,
-            )}</span
-          >
-        {:else}
-          <span>Before · {review?.base.slice(0, 8)}</span>
-          <span>After · {review?.head.slice(0, 8)}</span>
-        {/if}
-      </div>
-      {#if busy}<div class="empty">Loading code diff…</div>
-      {:else if source}
-        {#if interfaceView && codeBefore !== null && codeAfter !== null && codeBefore === codeAfter}
-          <div class="notice" role="status">
-            No visible interface differences with these filters. Full source may
-            still contain implementation or filtered changes.
-          </div>
-        {/if}
-        {#key `${generation}-${diffStyle}`}
-          <CodeDiff
-            before={codeBefore}
-            after={codeAfter}
-            wrap={interfaceView}
-            {diffStyle}
-            oldPath={review!.files.find((file) => file.id === fileId)!.oldPath}
-            path={filePath}
+    <div class="detail-content" class:combined={view === "combined"}>
+      {#if functionsOpened && review}
+        <div class="function-overview" hidden={view !== "functions"}>
+          <FunctionGraphs
+            {review}
+            active={view === "functions"}
+            onfocus={focusFunction}
           />
-        {/key}
-        <div class="hint">
-          {interfaceView
-            ? "Generated interface · bodies and initializers omitted · generated line numbers, not source locations"
-            : selected.kind === "module"
-              ? "Whole module · original file line numbers"
-              : `${selected.kind === "class" ? "Class" : "Function"} only, including decorators · line numbers relative to this snippet`}
         </div>
       {/if}
-    {:else if selected?.kind === "function"}
-      <div class="panes">
-        {#each [{ title: "Before", revision: review?.base, svg: before, symbol: selected.before }, { title: "After", revision: review?.head, svg: after, symbol: selected.after }] as pane}
-          <section class="pane">
-            <div class="pane-title">
-              <strong>{pane.title}</strong><span
-                >{pane.revision?.slice(0, 8)}{pane.symbol
-                  ? ` · line ${pane.symbol.line}`
-                  : ""}</span
-              >
+      {#if (view === "code" || (view === "combined" && selected?.kind === "function")) && selected}
+        <div
+          class="diff-revisions"
+          class:one-sided={diffStyle === "unified" ||
+            (source && (codeBefore === null || codeAfter === null))}
+        >
+          {#if source && codeBefore === null}
+            <span
+              >After · {review?.head.slice(0, 8)} · Added {selected.kind} — no previous
+              version</span
+            >
+          {:else if source && codeAfter === null}
+            <span
+              >Before · {review?.base.slice(0, 8)} · Removed {selected.kind} — no
+              next version</span
+            >
+          {:else if diffStyle === "unified"}
+            <span
+              >Before · {review?.base.slice(0, 8)} → After · {review?.head.slice(
+                0,
+                8,
+              )}</span
+            >
+          {:else}
+            <span>Before · {review?.base.slice(0, 8)}</span>
+            <span>After · {review?.head.slice(0, 8)}</span>
+          {/if}
+        </div>
+        {#if busy}<div class="empty">Loading code diff…</div>
+        {:else if source}
+          {#if interfaceView && codeBefore !== null && codeAfter !== null && codeBefore === codeAfter}
+            <div class="notice" role="status">
+              No visible interface differences with these filters. Full source
+              may still contain implementation or filtered changes.
             </div>
-            {#if pane.symbol}
-              <pre
-                class="signature"
-                aria-label={`${pane.title} function signature`}><code
-                  >{pane.symbol.signature}</code
-                ></pre>
-            {/if}
-            <div class="graph-area">
-              {#if busy}<div class="empty">Generating function graph…</div>
-              {:else if pane.svg}{#key pane.svg}<GraphPane
-                    svg={pane.svg}
-                  />{/key}
-              {:else}<div class="empty">
-                  {pane.symbol
-                    ? "Graph unavailable"
-                    : `Function ${pane.title === "Before" ? "added — no previous version" : "removed — no next version"}`}
-                </div>{/if}
-            </div>
-          </section>
-        {/each}
-      </div>
-      <div class="hint">
-        Scroll to zoom · drag to pan · independent control-flow graphs, not a
-        graph diff
-      </div>
-    {:else}<div class="welcome">
-        <div class="emblem">♛</div>
-        <h2>
-          {selected?.kind === "class"
-            ? "Class structure changed"
-            : selected?.kind === "module"
-              ? "Module-level changes"
-              : "Explore the shape of a change"}
-        </h2>
-        <p>
-          {selected?.kind === "class"
-            ? "Select a changed method to compare its function graphs."
-            : selected?.kind === "module"
-              ? "No function graph applies to a whole module. Switch to Code diff to review its source."
-              : "Select a function in the structure tree to compare its before and after control flow."}
-        </p>
-      </div>{/if}
+          {/if}
+          {#key `${generation}-${diffStyle}`}
+            <CodeDiff
+              before={codeBefore}
+              after={codeAfter}
+              wrap={interfaceView}
+              {diffStyle}
+              beforeLines={interfaceView ? source.beforeLines : undefined}
+              afterLines={interfaceView ? source.afterLines : undefined}
+              beforeStart={selected.kind === "module"
+                ? 1
+                : startLine(source.before, selected.before)}
+              afterStart={selected.kind === "module"
+                ? 1
+                : startLine(source.after, selected.after)}
+              oldPath={review!.files.find((file) => file.id === fileId)!
+                .oldPath}
+              path={filePath}
+            />
+          {/key}
+          <div class="hint">
+            {interfaceView
+              ? "Generated interface · bodies and initializers omitted · original source line numbers"
+              : selected.kind === "module"
+                ? "Whole module · original file line numbers"
+                : `${selected.kind === "class" ? "Class" : "Function"} only, including decorators · original file line numbers`}
+          </div>
+        {/if}
+      {/if}
+      {#if (view === "graph" || view === "combined") && selected?.kind === "function"}
+        <div class="panes">
+          {#each [{ title: "Before", revision: review?.base, svg: before, symbol: selected.before }, { title: "After", revision: review?.head, svg: after, symbol: selected.after }] as pane}
+            <section class="pane">
+              <div class="pane-title">
+                <strong>{pane.title}</strong><span
+                  >{pane.revision?.slice(0, 8)}{pane.symbol
+                    ? ` · line ${pane.symbol.line}`
+                    : ""}</span
+                >
+              </div>
+              {#if pane.symbol}
+                <pre
+                  class="signature"
+                  aria-label={`${pane.title} function signature`}><code
+                    >{pane.symbol.signature}</code
+                  ></pre>
+              {/if}
+              <div class="graph-area">
+                {#if busy}<div class="empty">Generating function graph…</div>
+                {:else if pane.svg}{#key pane.svg}<GraphPane
+                      svg={pane.svg}
+                    />{/key}
+                {:else}<div class="empty">
+                    {pane.symbol
+                      ? "Graph unavailable"
+                      : `Function ${pane.title === "Before" ? "added — no previous version" : "removed — no next version"}`}
+                  </div>{/if}
+              </div>
+            </section>
+          {/each}
+        </div>
+        <div class="hint">
+          Scroll to zoom · drag to pan · independent control-flow graphs, not a
+          graph diff
+        </div>
+      {:else if view !== "functions" && (view !== "code" || !selected)}<div
+          class="welcome"
+        >
+          <div class="emblem">♛</div>
+          <h2>
+            {selected?.kind === "class"
+              ? "Class structure changed"
+              : selected?.kind === "module"
+                ? "Module-level changes"
+                : "Explore the shape of a change"}
+          </h2>
+          <p>
+            {selected?.kind === "class"
+              ? "Select a changed method to compare its code and function graphs."
+              : selected?.kind === "module"
+                ? "No function graph applies to a whole module. Switch to Code diff to review its source."
+                : "Select a function in the structure tree to compare its before and after control flow."}
+          </p>
+        </div>{/if}
+    </div>
   </article>
 </main>
 
@@ -565,6 +626,44 @@
     justify-content: space-between;
     margin-bottom: 22px;
     gap: 12px;
+    flex-wrap: wrap;
+  }
+  .toolbar > div:first-child {
+    flex-shrink: 0;
+    max-width: 100%;
+  }
+  .detail-content {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+  }
+  .function-overview {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+  }
+  .function-overview[hidden] {
+    display: none;
+  }
+  .back-functions {
+    width: auto;
+    padding: 8px 12px;
+    font-size: 12px;
+    color: #3455aa;
+  }
+  .detail-content.combined {
+    overflow: auto;
+    gap: 16px;
+  }
+  .combined :global(.code-diff) {
+    flex: none;
+    min-height: 120px;
+    overflow: visible;
+  }
+  .combined .panes {
+    flex: none;
+    height: 500px;
   }
   .view-controls {
     display: flex;

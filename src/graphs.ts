@@ -24,7 +24,6 @@ export async function graph(
   source: string,
   symbol: SymbolInfo,
   namespace: string,
-  detailed: boolean,
 ) {
   const { parser, graphviz } = await ready;
   const tree = parser.parse(source)!;
@@ -46,7 +45,7 @@ export async function graph(
     if (!node) throw new Error("Function not found");
     let cfg = pythonLanguageDefinition.createCFGBuilder({}).buildCFG(node);
     cfg = remapNodeTargets(simplifyCFG(trimFor(cfg), mergeNodeAttrs));
-    const svg = graphviz.dot(graphToDot(cfg, detailed));
+    const svg = graphviz.dot(graphToDot(cfg, false));
     const doc = new DOMParser().parseFromString(svg, "image/svg+xml");
     doc.querySelectorAll("[id]").forEach((el) => {
       el.id = `${namespace}-${el.id}`;

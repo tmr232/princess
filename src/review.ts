@@ -121,6 +121,7 @@ export async function createInterface(
   source: string,
   options: InterfaceOptions,
   classLine?: number,
+  lineNumbers?: (number | null)[],
 ) {
   const tree = (await parser()).parse(source);
   if (!tree || tree.rootNode.hasError) {
@@ -146,7 +147,7 @@ export async function createInterface(
     const root =
       classLine === undefined ? tree.rootNode : findClass(tree.rootNode);
     if (!root) throw new Error("Class not found in revision source");
-    return projectInterface(root, options);
+    return projectInterface(root, options, lineNumbers);
   } finally {
     tree.delete();
   }
