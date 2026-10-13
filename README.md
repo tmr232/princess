@@ -16,6 +16,8 @@ Open the printed browser URL. Use `--port 3000` for a fixed port. The server def
 
 Select a changed function or method to see independent before/after graphs. Scroll to zoom and drag to pan. Detailed labels expose the explorer's verbose node labels. Added/removed functions have one empty side. Classes roll up changes to their definitions and children. Module-level entries cover edits outside definitions; other file types are listed without structural analysis.
 
+Function signatures appear above each graph, including multiline declarations and type annotations. Use **Graph / Code diff** to switch views without changing the selection. The [Pierre diff viewer](https://diffs.com/) shows only the selected function or class, including decorators; snippet line numbers start at 1. Click a Python file heading (or its module-level entry) to review the entire module with original file line numbers. Added/removed definitions and modules have one missing side.
+
 ## Scope and semantics
 
 - Compares the two commit snapshots directly (not merge-base/PR semantics); never checks out revisions or executes reviewed Python.

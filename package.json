@@ -12,6 +12,7 @@
     "@ast-grep/cli": "0.50.0",
     "@hpcc-js/wasm-graphviz": "^1.7.0",
     "@panzoom/panzoom": "^4.6.0",
+    "@pierre/diffs": "^1.5.2",
     "commander": "^14.0.0",
     "graphology": "^0.26.0",
     "graphology-operators": "^1.6.0",

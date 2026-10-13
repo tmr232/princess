@@ -1,8 +1,16 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { reviewSchema, type Review, type Change } from "./model";
+  import {
+    reviewSchema,
+    type Review,
+    type Change,
+    type SymbolInfo,
+  } from "./model";
   import { graph } from "./graphs";
   import GraphPane from "./GraphPane.svelte";
+  import CodeDiff from "./CodeDiff.svelte";
+  let view: "graph" | "code" = "graph";
+  let source: { before: string | null; after: string | null } | null = null;
   let review: Review | null = null;
   let error = "",
     busy = false,
@@ -20,8 +28,9 @@
     filePath = path;
     before = "";
     after = "";
+    source = null;
     error = "";
-    if (change.kind !== "function") {
+    if (view === "graph" && change.kind !== "function") {
       busy = false;
       return;
     }
@@ -29,13 +38,16 @@
     try {
       const response = await fetch(`/api/source/${id}`);
       if (!response.ok) throw new Error("Unable to load revision source");
-      const source = await response.json();
+      const loaded = await response.json();
+      if (current !== generation) return;
+      source = loaded;
+      if (view === "code") return;
       const [left, right] = await Promise.all([
         change.before
-          ? graph(source.before, change.before, "before", detailed)
+          ? graph(loaded.before, change.before, "before", detailed)
           : "",
         change.after
-          ? graph(source.after, change.after, "after", detailed)
+          ? graph(loaded.after, change.after, "after", detailed)
           : "",
       ]);
       if (current === generation) {
@@ -48,6 +60,22 @@
       if (current === generation) busy = false;
     }
   }
+  function setView(next: "graph" | "code") {
+    view = next;
+    if (selected) void select(fileId, filePath, selected);
+  }
+  function codeFor(text: string | null, symbol: SymbolInfo | null) {
+    if (selected?.kind === "module") return text;
+    if (!symbol) return null;
+    // Include complete source lines, preserving indentation, comments and line endings.
+    const start = text!.lastIndexOf("\n", symbol.start - 1) + 1;
+    const end = text!.indexOf("\n", symbol.end);
+    return text!.slice(start, end === -1 ? text!.length : end + 1);
+  }
+  $: codeBefore =
+    source && selected ? codeFor(source.before, selected.before) : null;
+  $: codeAfter =
+    source && selected ? codeFor(source.after, selected.after) : null;
   onMount(async () => {
     try {
       const response = await fetch("/api/review");
@@ -97,7 +125,28 @@
             : file.path}
         >
           <span>◇</span>
-          {file.path}
+          {#if file.supported}
+            <button
+              class="file-select"
+              class:active={selected?.kind === "module" && fileId === file.id}
+              aria-label={`View module ${file.path}`}
+              onclick={() =>
+                select(file.id, file.path, {
+                  id: "$module",
+                  name: file.path,
+                  kind: "module",
+                  parent: null,
+                  status:
+                    file.status === "A"
+                      ? "added"
+                      : file.status === "D"
+                        ? "removed"
+                        : "modified",
+                  before: null,
+                  after: null,
+                })}>{file.path}</button
+            >
+          {:else}{file.path}{/if}
           <small>{file.status.startsWith("R") ? "renamed" : file.status}</small>
         </h2>
         {#if !file.supported}<p class="muted">
@@ -148,16 +197,66 @@
             : "Review overview"}
         </h1>
       </div>
-      <label
-        ><input
-          type="checkbox"
-          bind:checked={detailed}
-          onchange={() => selected && select(fileId, filePath, selected)}
-        /> Detailed labels</label
-      >
+      <div class="view-controls">
+        <div class="view-toggle" role="group" aria-label="Review view">
+          <button
+            class:active={view === "graph"}
+            aria-pressed={view === "graph"}
+            onclick={() => setView("graph")}>Graph</button
+          >
+          <button
+            class:active={view === "code"}
+            aria-pressed={view === "code"}
+            onclick={() => setView("code")}>Code diff</button
+          >
+        </div>
+        {#if view === "graph"}<label
+            ><input
+              type="checkbox"
+              bind:checked={detailed}
+              onchange={() => selected && select(fileId, filePath, selected)}
+            /> Detailed labels</label
+          >{/if}
+      </div>
     </div>
     {#if error}<div class="error" role="alert">{error}</div>{/if}
-    {#if selected?.kind === "function"}
+    {#if view === "code" && selected}
+      <div
+        class="diff-revisions"
+        class:one-sided={source && (codeBefore === null || codeAfter === null)}
+      >
+        {#if source && codeBefore === null}
+          <span
+            >After · {review?.head.slice(0, 8)} · Added {selected.kind} — no previous
+            version</span
+          >
+        {:else if source && codeAfter === null}
+          <span
+            >Before · {review?.base.slice(0, 8)} · Removed {selected.kind} — no next
+            version</span
+          >
+        {:else}
+          <span>Before · {review?.base.slice(0, 8)}</span>
+          <span>After · {review?.head.slice(0, 8)}</span>
+        {/if}
+      </div>
+      {#if busy}<div class="empty">Loading code diff…</div>
+      {:else if source}
+        {#key generation}
+          <CodeDiff
+            before={codeBefore}
+            after={codeAfter}
+            oldPath={review!.files.find((file) => file.id === fileId)!.oldPath}
+            path={filePath}
+          />
+        {/key}
+        <div class="hint">
+          {selected.kind === "module"
+            ? "Whole module · original file line numbers"
+            : `${selected.kind === "class" ? "Class" : "Function"} only, including decorators · line numbers relative to this snippet`}
+        </div>
+      {/if}
+    {:else if selected?.kind === "function"}
       <div class="panes">
         {#each [{ title: "Before", revision: review?.base, svg: before, symbol: selected.before }, { title: "After", revision: review?.head, svg: after, symbol: selected.after }] as pane}
           <section class="pane">
@@ -206,7 +305,7 @@
           {selected?.kind === "class"
             ? "Select a changed method to compare its function graphs."
             : selected?.kind === "module"
-              ? "Changes outside function and class definitions; no function graph applies."
+              ? "No function graph applies to a whole module. Switch to Code diff to review its source."
               : "Select a function in the structure tree to compare its before and after control flow."}
         </p>
       </div>{/if}
@@ -289,6 +388,13 @@
   .file h2 span {
     color: #73869b;
   }
+  .file-select {
+    display: inline;
+    width: auto;
+    padding: 2px 4px;
+    font-weight: inherit;
+    overflow-wrap: anywhere;
+  }
   small {
     font-size: 10px;
     color: #778698;
@@ -363,6 +469,40 @@
     justify-content: space-between;
     margin-bottom: 22px;
     gap: 12px;
+  }
+  .view-controls {
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .view-toggle {
+    display: flex;
+    border: 1px solid #dce3eb;
+    border-radius: 6px;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+  .view-toggle button {
+    width: auto;
+    padding: 8px 12px;
+    white-space: nowrap;
+    font-size: 12px;
+  }
+  .view-toggle button.active {
+    box-shadow: none;
+  }
+  .diff-revisions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    padding: 0 18px 12px;
+    font:
+      12px ui-monospace,
+      monospace;
+    color: #667991;
+  }
+  .diff-revisions.one-sided {
+    grid-template-columns: 1fr;
   }
   .breadcrumb {
     color: #7b8b9f;
