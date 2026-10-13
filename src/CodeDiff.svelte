@@ -1,19 +1,38 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { FileDiff, type FileContents } from "@pierre/diffs";
+  import { File, FileDiff, type FileContents } from "@pierre/diffs";
 
   export let before: string | null;
   export let after: string | null;
   export let oldPath: string;
   export let path: string;
+  export let wrap = false;
   let root: HTMLDivElement;
+  let oldRoot: HTMLDivElement, newRoot: HTMLDivElement;
 
   onMount(() => {
+    // FileDiff has no hunks for identical text; keep both revisions readable.
+    if (before !== null && before === after) {
+      const viewers = [oldRoot, newRoot].map((containerWrapper, i) => {
+        const viewer = new File({
+          themeType: "light",
+          disableFileHeader: true,
+          overflow: wrap ? "wrap" : "scroll",
+        });
+        viewer.render({
+          file: { name: i ? path : oldPath, contents: before!, lang: "python" },
+          containerWrapper,
+        });
+        return viewer;
+      });
+      return () => viewers.forEach((viewer) => viewer.cleanUp());
+    }
     const viewer = new FileDiff({
       diffStyle: "split",
       themeType: "light",
       expandUnchanged: true,
       disableFileHeader: true,
+      overflow: wrap ? "wrap" : "scroll",
     });
     const oldFile: FileContents | null =
       before === null
@@ -33,7 +52,16 @@
   });
 </script>
 
-<div class="code-diff" bind:this={root}></div>
+<div
+  class="code-diff"
+  class:identical={before !== null && before === after}
+  bind:this={root}
+>
+  {#if before !== null && before === after}
+    <div class="unchanged-file" bind:this={oldRoot}></div>
+    <div class="unchanged-file" bind:this={newRoot}></div>
+  {/if}
+</div>
 
 <style>
   .code-diff {
@@ -43,5 +71,16 @@
     background: white;
     border: 1px solid #dce3eb;
     border-radius: 9px;
+  }
+  .identical {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-content: start;
+  }
+  .unchanged-file {
+    min-width: 0;
+  }
+  .unchanged-file + .unchanged-file {
+    border-left: 1px solid #dce3eb;
   }
 </style>

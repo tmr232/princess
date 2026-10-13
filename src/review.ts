@@ -2,6 +2,7 @@ import { resolve } from "node:path";
 import { Parser, Language, type Node } from "web-tree-sitter";
 import { z } from "zod";
 import type { Review, SymbolInfo, Change } from "./model";
+import { projectInterface, type InterfaceOptions } from "./interface";
 
 async function run(args: string[], cwd: string, stdin?: string) {
   const proc = Bun.spawn(args, {
@@ -114,6 +115,41 @@ async function analyze(source: string): Promise<SymbolInfo[]> {
   // Outline supplies names; Tree-sitter fills nested definitions and decorator ranges.
   tree.delete();
   return symbols;
+}
+
+export async function createInterface(
+  source: string,
+  options: InterfaceOptions,
+  classLine?: number,
+) {
+  const tree = (await parser()).parse(source);
+  if (!tree || tree.rootNode.hasError) {
+    tree?.delete();
+    throw new Error("Cannot analyze invalid Python syntax");
+  }
+  try {
+    function findClass(node: Node): Node | null {
+      if (
+        node.type === "class_definition" &&
+        node.startPosition.row + 1 === classLine
+      )
+        return node.parent?.type === "decorated_definition"
+          ? node.parent
+          : node;
+      for (const child of node.namedChildren) {
+        if (!child) continue;
+        const found = findClass(child);
+        if (found) return found;
+      }
+      return null;
+    }
+    const root =
+      classLine === undefined ? tree.rootNode : findClass(tree.rootNode);
+    if (!root) throw new Error("Class not found in revision source");
+    return projectInterface(root, options);
+  } finally {
+    tree.delete();
+  }
 }
 
 export async function createReview(

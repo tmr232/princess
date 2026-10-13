@@ -1,6 +1,6 @@
 import { Command } from "commander";
 import { resolve, sep } from "node:path";
-import { createReview } from "./review";
+import { createReview, createInterface } from "./review";
 
 const options = new Command()
   .name("princess")
@@ -39,10 +39,43 @@ try {
         return new Response("Method not allowed", { status: 405 });
       if (url.pathname === "/api/review") return Response.json(review);
       if (url.pathname.startsWith("/api/source/")) {
-        const source = sources.get(url.pathname.slice("/api/source/".length));
-        return source
-          ? Response.json(source)
-          : new Response("Not found", { status: 404 });
+        const id = url.pathname.slice("/api/source/".length);
+        const source = sources.get(id);
+        if (!source) return new Response("Not found", { status: 404 });
+        if (url.searchParams.get("view") !== "interface")
+          return Response.json(source);
+        const symbol = url.searchParams.get("symbol");
+        const change = symbol
+          ? review.files
+              .find((f) => f.id === id)
+              ?.changes.find((c) => c.id === symbol)
+          : null;
+        if (symbol && change?.kind !== "class")
+          return new Response("Interface selection must be a class or module", {
+            status: 400,
+          });
+        const filters = {
+          showPrivate: url.searchParams.get("private") === "1",
+          showDocstrings: url.searchParams.get("docstrings") === "1",
+        };
+        return Response.json({
+          before:
+            source.before === null || (change && !change.before)
+              ? null
+              : await createInterface(
+                  source.before,
+                  filters,
+                  change?.before?.line,
+                ),
+          after:
+            source.after === null || (change && !change.after)
+              ? null
+              : await createInterface(
+                  source.after,
+                  filters,
+                  change?.after?.line,
+                ),
+        });
       }
       const path = resolve(
         root,

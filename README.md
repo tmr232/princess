@@ -18,6 +18,10 @@ Select a changed function or method to see independent before/after graphs. Scro
 
 Function signatures appear above each graph, including multiline declarations and type annotations. Use **Graph / Code diff** to switch views without changing the selection. The [Pierre diff viewer](https://diffs.com/) shows only the selected function or class, including decorators; snippet line numbers start at 1. Click a Python file heading (or its module-level entry) to review the entire module with original file line numbers. Added/removed definitions and modules have one missing side.
 
+Class and module code diffs default to **Interface**, a generated pyi-like projection retaining imports, class bases, decorators, annotations, type aliases, and function signatures (including defaults). Implementations and variable initializers become `...`; runtime statements and definitions inside function bodies are omitted. **Show private members** and **Show docstrings** are independent filters, both off by default. `_name` declarations are private; dunder names such as `__init__` remain visible. Imports remain as annotation context regardless of the privacy filter. Docstrings include module, class, and function documentation. **Full source** restores the unfiltered original text, with no collapsing. Function-only selections always show their full source.
+
+Interface line numbers refer to generated text, not the original source. This is a static review projection, not a type-inferred stub or a resolution of dynamic exports/instance attributes. A notice identifies identical visible interfaces: omitted implementation, initializers, or filtered members/docstrings can still have changes in the full source.
+
 ## Scope and semantics
 
 - Compares the two commit snapshots directly (not merge-base/PR semantics); never checks out revisions or executes reviewed Python.

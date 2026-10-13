@@ -10,6 +10,9 @@
   import GraphPane from "./GraphPane.svelte";
   import CodeDiff from "./CodeDiff.svelte";
   let view: "graph" | "code" = "graph";
+  let codeMode: "interface" | "source" = "interface";
+  let showPrivate = false,
+    showDocstrings = false;
   let source: { before: string | null; after: string | null } | null = null;
   let review: Review | null = null;
   let error = "",
@@ -36,7 +39,18 @@
     }
     busy = true;
     try {
-      const response = await fetch(`/api/source/${id}`);
+      const params = new URLSearchParams();
+      if (
+        view === "code" &&
+        change.kind !== "function" &&
+        codeMode === "interface"
+      ) {
+        params.set("view", "interface");
+        params.set("private", showPrivate ? "1" : "0");
+        params.set("docstrings", showDocstrings ? "1" : "0");
+        if (change.kind === "class") params.set("symbol", change.id);
+      }
+      const response = await fetch(`/api/source/${id}?${params}`);
       if (!response.ok) throw new Error("Unable to load revision source");
       const loaded = await response.json();
       if (current !== generation) return;
@@ -64,18 +78,35 @@
     view = next;
     if (selected) void select(fileId, filePath, selected);
   }
-  function codeFor(text: string | null, symbol: SymbolInfo | null) {
-    if (selected?.kind === "module") return text;
+  function setCodeMode(next: "interface" | "source") {
+    codeMode = next;
+    if (selected) void select(fileId, filePath, selected);
+  }
+  function codeFor(
+    text: string | null,
+    symbol: SymbolInfo | null,
+    projected: boolean,
+  ) {
+    if (projected || selected?.kind === "module") return text;
     if (!symbol) return null;
     // Include complete source lines, preserving indentation, comments and line endings.
     const start = text!.lastIndexOf("\n", symbol.start - 1) + 1;
     const end = text!.indexOf("\n", symbol.end);
     return text!.slice(start, end === -1 ? text!.length : end + 1);
   }
+  $: interfaceView =
+    view === "code" &&
+    !!selected &&
+    selected.kind !== "function" &&
+    codeMode === "interface";
   $: codeBefore =
-    source && selected ? codeFor(source.before, selected.before) : null;
+    source && selected
+      ? codeFor(source.before, selected.before, interfaceView)
+      : null;
   $: codeAfter =
-    source && selected ? codeFor(source.after, selected.after) : null;
+    source && selected
+      ? codeFor(source.after, selected.after, interfaceView)
+      : null;
   onMount(async () => {
     try {
       const response = await fetch("/api/review");
@@ -219,6 +250,38 @@
           >{/if}
       </div>
     </div>
+    {#if view === "code" && selected && selected.kind !== "function"}
+      <div class="interface-controls">
+        <div class="view-toggle" role="group" aria-label="Code representation">
+          <button
+            class:active={codeMode === "interface"}
+            aria-pressed={codeMode === "interface"}
+            onclick={() => setCodeMode("interface")}>Interface</button
+          >
+          <button
+            class:active={codeMode === "source"}
+            aria-pressed={codeMode === "source"}
+            onclick={() => setCodeMode("source")}>Full source</button
+          >
+        </div>
+        {#if codeMode === "interface"}
+          <label
+            ><input
+              type="checkbox"
+              bind:checked={showPrivate}
+              onchange={() => selected && select(fileId, filePath, selected)}
+            /> Show private members</label
+          >
+          <label
+            ><input
+              type="checkbox"
+              bind:checked={showDocstrings}
+              onchange={() => selected && select(fileId, filePath, selected)}
+            /> Show docstrings</label
+          >
+        {/if}
+      </div>
+    {/if}
     {#if error}<div class="error" role="alert">{error}</div>{/if}
     {#if view === "code" && selected}
       <div
@@ -242,18 +305,27 @@
       </div>
       {#if busy}<div class="empty">Loading code diff…</div>
       {:else if source}
+        {#if interfaceView && codeBefore !== null && codeAfter !== null && codeBefore === codeAfter}
+          <div class="notice" role="status">
+            No visible interface differences with these filters. Full source may
+            still contain implementation or filtered changes.
+          </div>
+        {/if}
         {#key generation}
           <CodeDiff
             before={codeBefore}
             after={codeAfter}
+            wrap={interfaceView}
             oldPath={review!.files.find((file) => file.id === fileId)!.oldPath}
             path={filePath}
           />
         {/key}
         <div class="hint">
-          {selected.kind === "module"
-            ? "Whole module · original file line numbers"
-            : `${selected.kind === "class" ? "Class" : "Function"} only, including decorators · line numbers relative to this snippet`}
+          {interfaceView
+            ? "Generated interface · bodies and initializers omitted · generated line numbers, not source locations"
+            : selected.kind === "module"
+              ? "Whole module · original file line numbers"
+              : `${selected.kind === "class" ? "Class" : "Function"} only, including decorators · line numbers relative to this snippet`}
         </div>
       {/if}
     {:else if selected?.kind === "function"}
@@ -475,6 +547,21 @@
     gap: 14px;
     align-items: center;
     flex-wrap: wrap;
+  }
+  .interface-controls {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 18px;
+  }
+  .notice {
+    padding: 12px 16px;
+    margin-bottom: 12px;
+    border-radius: 6px;
+    background: #e9efff;
+    color: #3455aa;
+    font-size: 12px;
   }
   .view-toggle {
     display: flex;

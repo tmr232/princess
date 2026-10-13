@@ -2,7 +2,7 @@ import { test, expect } from "bun:test";
 import { mkdtemp, rm, writeFile, rename } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createReview } from "./review";
+import { createReview, createInterface } from "./review";
 
 test("compares snapshot structure, including bodies, decorators, nested definitions and missing sides", async () => {
   const repo = await mkdtemp(join(tmpdir(), "princess-test-"));
@@ -161,4 +161,144 @@ def stable(x):
   } finally {
     await rm(repo, { recursive: true, force: true });
   }
+});
+
+test("projects module and class interfaces with independent privacy and docstring filters", async () => {
+  const source = `# leading comment
+"""Module API."""
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from models import Base
+LIMIT: int = build("INITIALIZER")
+_secret = 2
+public, _internal = (1, 2)
+@decorate("class:default")
+class Public(Base):
+    """Class API."""
+    value: str
+    _cache: dict = {}
+    def __init__(self, value: str):
+        """Initialize API."""
+        self.value = value
+    @property
+    def name(self) -> str:
+        # preceding comment
+        """Name API."""
+        return "BODY_MARKER"
+    @staticmethod
+    def _helper():
+        """Private API."""
+        return 3
+    class Nested:
+        def run(self): return 7
+async def fetch(
+    key: str = "a:b",
+) -> str:
+    """Fetch API."""
+    def implementation(): return 8
+    return "BODY_MARKER"
+@hidden
+def _private():
+    return 9
+print("TOP_LEVEL_IMPLEMENTATION")
+`;
+  const publicInterface = `from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from models import Base
+LIMIT: int = ...
+public = ...
+@decorate("class:default")
+class Public(Base):
+    value: str
+    def __init__(self, value: str):
+        ...
+    @property
+    def name(self) -> str:
+        ...
+    class Nested:
+        def run(self):
+            ...
+async def fetch(
+    key: str = "a:b",
+) -> str:
+    ...
+`;
+  expect(
+    await createInterface(source, {
+      showPrivate: false,
+      showDocstrings: false,
+    }),
+  ).toBe(publicInterface);
+  for (const showPrivate of [false, true]) {
+    for (const showDocstrings of [false, true]) {
+      const result = await createInterface(source, {
+        showPrivate,
+        showDocstrings,
+      });
+      expect(result.includes("def _helper")).toBe(showPrivate);
+      expect(result.includes("_cache: dict = ...")).toBe(showPrivate);
+      expect(result.includes("_internal = ...")).toBe(showPrivate);
+      expect(result.includes("@hidden")).toBe(showPrivate);
+      expect(result.includes('"""Module API."""')).toBe(showDocstrings);
+      expect(result.includes('"""Class API."""')).toBe(showDocstrings);
+      expect(result.includes('"""Name API."""')).toBe(showDocstrings);
+      expect(result.includes('"""Private API."""')).toBe(
+        showPrivate && showDocstrings,
+      );
+      expect(result).not.toMatch(
+        /BODY_MARKER|INITIALIZER|TOP_LEVEL_IMPLEMENTATION|def implementation|self.value =/,
+      );
+    }
+  }
+  const classLine =
+    source.split("\n").findIndex((line) => line === "class Public(Base):") + 1;
+  expect(
+    await createInterface(
+      source,
+      { showPrivate: false, showDocstrings: false },
+      classLine,
+    ),
+  ).toBe(
+    publicInterface.slice(
+      publicInterface.indexOf('@decorate("class:default")'),
+      publicInterface.indexOf("async def fetch"),
+    ),
+  );
+  expect(
+    await createInterface(
+      source.replace('return "BODY_MARKER"', 'return "different body"'),
+      {
+        showPrivate: false,
+        showDocstrings: false,
+      },
+    ),
+  ).toBe(publicInterface);
+  expect(
+    await createInterface("class Empty:\n    def _hidden(self): return 1\n", {
+      showPrivate: false,
+      showDocstrings: false,
+    }),
+  ).toBe("class Empty:\n    ...\n");
+  expect(
+    await createInterface("", { showPrivate: true, showDocstrings: true }),
+  ).toBe("");
+  expect(
+    await createInterface(
+      `type Alias[T] = list[T]
+type _Hidden = int
+Legacy: TypeAlias = dict[str, int]
+try:
+    from optional import Support
+except ImportError:
+    pass
+`,
+      { showPrivate: false, showDocstrings: false },
+    ),
+  ).toBe(`type Alias[T] = list[T]
+Legacy: TypeAlias = dict[str, int]
+try:
+    from optional import Support
+except ImportError:
+    ...
+`);
 });
