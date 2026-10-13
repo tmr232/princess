@@ -22,6 +22,8 @@ Class and module code diffs default to **Interface**, a generated pyi-like proje
 
 Interface line numbers refer to generated text, not the original source. This is a static review projection, not a type-inferred stub or a resolution of dynamic exports/instance attributes. A notice identifies identical visible interfaces: omitted implementation, initializers, or filtered members/docstrings can still have changes in the full source.
 
+All code diffs offer **Side-by-side** (the default) and **Inline** layouts. The layout choice is retained across selections and Interface / Full source switches, without changing the source or filters. Unchanged interfaces appear in both columns side-by-side, or once in inline mode.
+
 ## Scope and semantics
 
 - Compares the two commit snapshots directly (not merge-base/PR semantics); never checks out revisions or executes reviewed Python.

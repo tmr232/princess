@@ -11,6 +11,7 @@
   import CodeDiff from "./CodeDiff.svelte";
   let view: "graph" | "code" = "graph";
   let codeMode: "interface" | "source" = "interface";
+  let diffStyle: "split" | "unified" = "split";
   let showPrivate = false,
     showDocstrings = false;
   let source: { before: string | null; after: string | null } | null = null;
@@ -241,6 +242,20 @@
             onclick={() => setView("code")}>Code diff</button
           >
         </div>
+        {#if view === "code"}
+          <div class="view-toggle" role="group" aria-label="Diff layout">
+            <button
+              class:active={diffStyle === "split"}
+              aria-pressed={diffStyle === "split"}
+              onclick={() => (diffStyle = "split")}>Side-by-side</button
+            >
+            <button
+              class:active={diffStyle === "unified"}
+              aria-pressed={diffStyle === "unified"}
+              onclick={() => (diffStyle = "unified")}>Inline</button
+            >
+          </div>
+        {/if}
         {#if view === "graph"}<label
             ><input
               type="checkbox"
@@ -286,7 +301,8 @@
     {#if view === "code" && selected}
       <div
         class="diff-revisions"
-        class:one-sided={source && (codeBefore === null || codeAfter === null)}
+        class:one-sided={diffStyle === "unified" ||
+          (source && (codeBefore === null || codeAfter === null))}
       >
         {#if source && codeBefore === null}
           <span
@@ -297,6 +313,13 @@
           <span
             >Before · {review?.base.slice(0, 8)} · Removed {selected.kind} — no next
             version</span
+          >
+        {:else if diffStyle === "unified"}
+          <span
+            >Before · {review?.base.slice(0, 8)} → After · {review?.head.slice(
+              0,
+              8,
+            )}</span
           >
         {:else}
           <span>Before · {review?.base.slice(0, 8)}</span>
@@ -311,11 +334,12 @@
             still contain implementation or filtered changes.
           </div>
         {/if}
-        {#key generation}
+        {#key `${generation}-${diffStyle}`}
           <CodeDiff
             before={codeBefore}
             after={codeAfter}
             wrap={interfaceView}
+            {diffStyle}
             oldPath={review!.files.find((file) => file.id === fileId)!.oldPath}
             path={filePath}
           />

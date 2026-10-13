@@ -7,13 +7,15 @@
   export let oldPath: string;
   export let path: string;
   export let wrap = false;
+  export let diffStyle: "split" | "unified" = "split";
   let root: HTMLDivElement;
   let oldRoot: HTMLDivElement, newRoot: HTMLDivElement;
 
   onMount(() => {
     // FileDiff has no hunks for identical text; keep both revisions readable.
     if (before !== null && before === after) {
-      const viewers = [oldRoot, newRoot].map((containerWrapper, i) => {
+      const containers = diffStyle === "split" ? [oldRoot, newRoot] : [oldRoot];
+      const viewers = containers.map((containerWrapper, i) => {
         const viewer = new File({
           themeType: "light",
           disableFileHeader: true,
@@ -28,7 +30,7 @@
       return () => viewers.forEach((viewer) => viewer.cleanUp());
     }
     const viewer = new FileDiff({
-      diffStyle: "split",
+      diffStyle,
       themeType: "light",
       expandUnchanged: true,
       disableFileHeader: true,
@@ -54,12 +56,14 @@
 
 <div
   class="code-diff"
-  class:identical={before !== null && before === after}
+  class:identical={before !== null && before === after && diffStyle === "split"}
   bind:this={root}
 >
   {#if before !== null && before === after}
     <div class="unchanged-file" bind:this={oldRoot}></div>
-    <div class="unchanged-file" bind:this={newRoot}></div>
+    {#if diffStyle === "split"}
+      <div class="unchanged-file" bind:this={newRoot}></div>
+    {/if}
   {/if}
 </div>
 
