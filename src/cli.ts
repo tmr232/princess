@@ -1,3 +1,4 @@
+import { resolveComparison } from "./comparison";
 import { TraceRunner } from "./trace";
 import { CoverageRunner } from "./coverage";
 import { Command } from "commander";
@@ -7,10 +8,11 @@ import { createReview, createInterface } from "./review";
 const options = new Command()
   .name("princess")
   .description(
-    "Review two Git commits with structural summaries and function graphs",
+    "Review branch changes from the default-branch merge-base, or compare two commits",
   )
   .requiredOption("--repo <path>")
-  .requiredOption("--base <revision>")
+  .option("--base <revision>", "Compare directly against this revision")
+  .option("--merge-base <revision>", "Use the merge-base with this branch/revision (default: repository default branch)")
   .option("--head <revision>", "Head revision", "HEAD")
   .option(
     "--port <number>",
@@ -27,11 +29,8 @@ try {
   const root = resolve(import.meta.dir, "../dist");
   if (!(await Bun.file(resolve(root, "index.html")).exists()))
     throw new Error("Build the browser UI first: bun run build");
-  const { review, sources } = await createReview(
-    options.repo,
-    options.base,
-    options.head,
-  );
+  const comparison = await resolveComparison(options.repo, options);
+  const { review, sources } = await createReview(options.repo, comparison.base, comparison.head);
   const coverage = new CoverageRunner(review, sources);
   const trace = new TraceRunner(review, sources);
   const server = Bun.serve({
@@ -119,7 +118,7 @@ try {
     },
   });
   console.log(
-    `Princess: ${server.url}\n${review.files.length} changed files · ${review.base.slice(0, 8)} → ${review.head.slice(0, 8)}`,
+    `Princess: ${server.url}\n${review.files.length} changed files · ${review.base.slice(0, 8)} → ${review.head.slice(0, 8)}${comparison.target ? `\nMerge-base with ${comparison.target.replace(/^refs\/(remotes|heads)\//, "")} · target ${comparison.targetHead!.slice(0, 8)}` : ""}`,
   );
 } catch (error) {
   console.error(error instanceof Error ? error.message : error);

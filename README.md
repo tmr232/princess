@@ -9,8 +9,20 @@ Requires Bun and Git. ast-grep 0.50.0 is installed as a local dependency.
 ```sh
 bun install
 bun run build
+bun run review --repo /path/to/repository
+```
+
+Without `--base`, Princess compares the committed `HEAD` with its merge-base against the repository's default branch. It uses `origin/HEAD` (or a sole alternative remote's HEAD), then falls back to local remote-tracking/local `main` and `master` refs. No fetch or checkout is performed: comparison uses the refs already available locally. Uncommitted changes are excluded.
+
+```sh
+# Choose the branch whose merge-base should be used.
+bun run review --repo /path/to/repository --merge-base main
+
+# Preserve direct comparisons between arbitrary commits.
 bun run review --repo /path/to/repository --base main --head HEAD
 ```
+
+`--head <revision>` also works in merge-base mode. `--base` and `--merge-base` are mutually exclusive. Startup prints the chosen target and resolved commit IDs. Missing default-branch refs, unrelated/incomplete history, or multiple merge bases produce an explicit error; choose a target with `--merge-base` or an exact baseline with `--base` as appropriate.
 
 Open the printed browser URL. Use `--port 3000` for a fixed port. The server defaults to loopback; `--host 0.0.0.0` is for trusted environments only. It serves repository source to connected clients and has no authentication.
 
@@ -32,7 +44,7 @@ All code diffs offer **Side-by-side** (the default) and **Inline** layouts. The 
 
 ## Scope and semantics
 
-- Compares the two commit snapshots directly (not merge-base/PR semantics); static review does not execute Python. Coverage runs execute the reviewed head snapshot only when explicitly triggered.
+- Compares resolved commit snapshots: the default baseline is the default-branch merge-base; explicit `--base` preserves direct snapshot comparison. Static review does not execute Python. Coverage runs execute the reviewed head snapshot only when explicitly triggered.
 - Git identifies changed files and file renames. ast-grep outline supplies the structural inventory. Tree-sitter supplements nested definitions, decorator ranges, and graph selection.
 - Definitions are paired by qualified name and kind (renames appear as add/remove); repeated names use occurrence order. Exact definition-text comparison includes body, decorators, comments, and formatting. Classes and enclosing functions roll up child changes.
 - Changes outside recognized definitions appear as module-level changes. Syntax errors stop analysis with an explicit error rather than silently omitting results.
