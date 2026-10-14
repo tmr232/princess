@@ -9,9 +9,13 @@
   import { graph } from "./graphs";
   import GraphPane from "./GraphPane.svelte";
   import CodeDiff from "./CodeDiff.svelte";
+  import type { CoverageState } from "./coverage";
   import CoveragePanel from "./CoveragePanel.svelte";
   import FunctionGraphs from "./FunctionGraphs.svelte";
   type View = "graph" | "code" | "functions" | "combined";
+  let tab: "review" | "coverage" = "review";
+  let coverageTest = "";
+  let coverageState: CoverageState | null = null;
   let view: View = "graph";
   let singleView: Exclude<View, "functions"> = "graph";
   let functionsOpened = false;
@@ -95,6 +99,17 @@
     }
     if (selected) void select(fileId, filePath, selected);
   }
+  function inspectCoverage(id: string, changeId: string) {
+    tab = "review";
+    const file = review?.files.find(f => f.id === id);
+    const change = file?.changes.find(c => c.id === changeId);
+    if (file && change) {
+      view = "code";
+      singleView = "code";
+      codeMode = "source";
+      void select(file.id, file.path, change);
+    } else setView("code");
+  }
   function focusFunction(id: string, path: string, change: Change) {
     returnToFunctions = true;
     view = "combined";
@@ -161,13 +176,17 @@
       >STRUCTURAL CODE REVIEW</span
     >
   </div>
+  <nav aria-label="Main navigation">
+    <button class:active={tab === "review"} aria-pressed={tab === "review"} onclick={() => tab = "review"}>Review</button>
+    <button class:active={tab === "coverage"} aria-pressed={tab === "coverage"} onclick={() => tab = "coverage"}>Tests &amp; coverage{coverageState?.status === "running" ? " · Running…" : ""}</button>
+  </nav>
   <span class="revisions"
     >{review
       ? `${review.base.slice(0, 8)} → ${review.head.slice(0, 8)}`
       : "Loading review…"}</span
   >
 </header>
-<main>
+<main hidden={tab !== "review"}>
   <aside>
     <div class="section-title">
       CHANGED STRUCTURE <span
@@ -358,7 +377,6 @@
       </div>
     {/if}
     {#if error}<div class="error" role="alert">{error}</div>{/if}
-    {#if review}<CoveragePanel {review} {fileId} selectedId={selected?.id ?? ""} />{/if}
     <div class="detail-content" class:combined={view === "combined"}>
       {#if functionsOpened && review}
         <div class="function-overview" hidden={view !== "functions"}>
@@ -407,6 +425,9 @@
           {/if}
           {#key `${generation}-${diffStyle}`}
             <CodeDiff
+              coverage={coverageState?.status === "complete" ? coverageState.report?.files[filePath] : undefined}
+              coverageStatus={coverageState?.status ?? "idle"}
+              bind:testFilter={coverageTest}
               before={codeBefore}
               after={codeAfter}
               wrap={interfaceView}
@@ -491,6 +512,11 @@
     </div>
   </article>
 </main>
+<div class="coverage-page" hidden={tab !== "coverage"}>
+  <h1>Tests &amp; coverage</h1>
+  <p>Run changed tests, then return to Review to explore coverage on the code.</p>
+  {#if review}<CoveragePanel {review} {fileId} selectedId={selected?.id ?? ""} bind:state={coverageState} oninspect={inspectCoverage} />{/if}
+</div>
 
 <style>
   :global(*) {
@@ -515,6 +541,12 @@
     justify-content: space-between;
     padding: 0 28px;
   }
+  main[hidden], .coverage-page[hidden] { display: none; }
+  .coverage-page { padding: 28px; height: calc(100vh - 72px); overflow: auto; }
+  .coverage-page > p { color: #63758a; font-size: 13px; }
+  header nav { display: flex; gap: 8px; }
+  header nav button { width: auto; color: #c3cddb; border-radius: 6px; padding: 10px 16px; font-size: 13px; }
+  header nav button.active, header nav button:hover { color: white; background: #2c405a; box-shadow: none; }
   header strong {
     font-size: 24px;
     letter-spacing: -0.5px;
@@ -678,6 +710,10 @@
   .detail-content.combined {
     overflow: auto;
     gap: 16px;
+  }
+  .combined :global(.code-review) {
+    flex: none;
+    min-height: 120px;
   }
   .combined :global(.code-diff) {
     flex: none;

@@ -5,9 +5,10 @@
   export let review: Review;
   export let fileId: string;
   export let selectedId: string;
-  let state: CoverageState | null = null;
+  export let state: CoverageState | null = null;
+  export let oninspect: (fileId: string, changeId: string) => void;
   let selected: string[] = [];
-  let open = false, error = "";
+  let error = "";
   let timer: ReturnType<typeof setTimeout>;
   let disposed = false;
   async function load() {
@@ -45,11 +46,10 @@
 </script>
 
 <section class="coverage" aria-label="Pytest coverage">
-  <button class="heading" aria-expanded={open} onclick={() => open = !open}>
-    <strong>{open ? "▾" : "▸"} Pytest coverage</strong>
+  <div class="heading">
+    <strong>Pytest coverage</strong>
     <span>{state?.status === "running" ? "Running tests…" : state?.status === "complete" ? `${state.functions.filter(f => f.tests.length).length} / ${state.functions.length} changed functions reached` : `${state?.targets.length ?? 0} changed tests available`}</span>
-  </button>
-  {#if open}
+  </div>
     <div class="content">
       <p>Run selected changed tests against head <code>{review.head.slice(0,8)}</code> in an isolated snapshot. This executes repository code. Requires uv, pytest and pytest-cov.</p>
       <div class="columns">
@@ -76,25 +76,26 @@
       {#if error || state?.error}<p class="error" role="alert">{error || state?.error}</p>{/if}
       {#if state?.status === "complete"}
         <p role="status" class:success={state.exitCode === 0}>Pytest exit code {state.exitCode}{state.exitCode === 0 ? " · Tests passed" : " · Tests did not all pass; partial coverage shown"}</p>
+        <button class="download" onclick={() => oninspect(fileId, selectedId)}>View coverage on code</button>
         <button class="download" onclick={download}>Download coverage JSON</button>
         <details><summary>All changed functions · {state.functions.length}</summary>
           <table><thead><tr><th>Function</th><th>Covering tests</th></tr></thead><tbody>
-            {#each state.functions as fn}<tr><td><code>{fn.path}::{fn.name}</code></td><td>{#each fn.tests as test}<div><code>{test}</code></div>{:else}<span>Not reached</span>{/each}</td></tr>{/each}
+            {#each state.functions as fn}<tr><td><button class="inspect" onclick={() => oninspect(fn.fileId, fn.changeId)} aria-label={`View coverage for ${fn.path}::${fn.name}`}><code>{fn.path}::{fn.name}</code></button></td><td>{#each fn.tests as test}<div><code>{test}</code></div>{:else}<span>Not reached</span>{/each}</td></tr>{/each}
           </tbody></table>
         </details>
       {/if}
       {#if state?.command}<details><summary>Command and run output</summary><pre>{state.command}\n{state.output}</pre></details>{/if}
     </div>
-  {/if}
 </section>
 <style>
-  .coverage { background: white; border: 1px solid #dce3eb; border-radius: 8px; margin-bottom: 18px; max-height: 55vh; overflow: auto; flex-shrink: 0; font-size: 12px; }
+  .coverage { background: white; border: 1px solid #dce3eb; border-radius: 8px; margin-bottom: 18px; max-height: 100%; overflow: auto; flex-shrink: 0; font-size: 12px; }
   button { font: inherit; cursor: pointer; }
   .heading { display: flex; justify-content: space-between; gap: 12px; width: 100%; background: #edf2fc; border: 0; color: #3455aa; padding: 13px 16px; text-align: left; }
   .content { padding: 0 16px 16px; } p { color: #63758a; line-height: 1.6; } h3 { font-size: 12px; margin-top: 0; }
   .columns { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin: 20px 0; }
   label { display: flex; align-items: start; gap: 8px; margin: 10px 0; } code { overflow-wrap: anywhere; font-size: 11px; } small { display: block; color: #7b8b9f; line-height: 1.6; }
   .run { background: #3455aa; border: 0; color: white; border-radius: 5px; padding: 10px 14px; margin: 8px 0; } .run:disabled { opacity: .5; cursor: default; }
+  .inspect { border: 0; background: transparent; padding: 0; text-align: left; color: #3455aa; text-decoration: underline; }
   .download { border: 1px solid #dce3eb; background: #f7f9fc; color: #3455aa; padding: 8px 12px; border-radius: 5px; }
   .success, .test span { color: #258459; } .test { margin: 8px 0; } .error { color: #a33340; white-space: pre-wrap; }
   details { margin-top: 12px; } summary { cursor: pointer; color: #3455aa; } pre { white-space: pre-wrap; max-height: 220px; overflow: auto; font-size: 11px; background: #f7f9fc; padding: 12px; }
