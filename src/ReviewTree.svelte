@@ -42,6 +42,9 @@
     tree = new FileTree({ paths: data.paths, gitStatus: data.statuses,
       initialExpansion: "closed", initialExpandedPaths: directoryPaths(), flattenEmptyDirectories: true, stickyFolders: true,
       search: false, fileTreeSearchMode: "hide-non-matches", searchBlurBehavior: "retain",
+      // Pierre closes a search session on activation. Our persistent filter input
+      // remains the source of truth until the user clears it.
+      onSearchChange: value => { if (value === null) queueMicrotask(() => { if (query) tree?.setSearch(query); }); },
       density: "default", icons: "minimal", overscan: 8,
       renderRowDecoration: ({ row }) => {
         const entry = data.rows.get(normalize(row.path));
