@@ -9,6 +9,7 @@
   import { graph } from "./graphs";
   import GraphPane from "./GraphPane.svelte";
   import CodeDiff from "./CodeDiff.svelte";
+  import CoveragePanel from "./CoveragePanel.svelte";
   import FunctionGraphs from "./FunctionGraphs.svelte";
   type View = "graph" | "code" | "functions" | "combined";
   let view: View = "graph";
@@ -357,6 +358,7 @@
       </div>
     {/if}
     {#if error}<div class="error" role="alert">{error}</div>{/if}
+    {#if review}<CoveragePanel {review} {fileId} selectedId={selected?.id ?? ""} />{/if}
     <div class="detail-content" class:combined={view === "combined"}>
       {#if functionsOpened && review}
         <div class="function-overview" hidden={view !== "functions"}>

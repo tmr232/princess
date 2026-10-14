@@ -1,0 +1,511 @@
+{
+  "base": "b2fc096f08de8278f7db9c63c0eeff194c7bafd6",
+  "head": "e6f385132d650d25bdf7d0550b76545ddec68645",
+  "status": "complete",
+  "targets": [
+    {
+      "nodeid": "test_pricing.py::test_regular",
+      "fileId": "1",
+      "changeId": "function:test_regular"
+    },
+    {
+      "nodeid": "test_pricing.py::test_bulk",
+      "fileId": "1",
+      "changeId": "function:test_bulk"
+    }
+  ],
+  "selected": [
+    "test_pricing.py::test_regular"
+  ],
+  "command": "uv run pytest \"test_pricing.py::test_regular\" --cov=. --cov-context=test --cov-report=",
+  "output": "Using CPython 3.12.14 interpreter at: /opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3\nCreating virtual environment at: .venv\nInstalled 7 packages in 10ms\n============================= test session starts ==============================\nplatform linux -- Python 3.12.14, pytest-9.1.1, pluggy-1.6.0\nrootdir: /tmp/princess-coverage-tJQRrt/repo\nconfigfile: pyproject.toml\nplugins: cov-7.1.0\ncollected 1 item\n\ntest_pricing.py .                                                        [100%]\n\n============================== 1 passed in 0.13s ===============================\nWrote JSON report to /tmp/princess-coverage-tJQRrt/coverage.json\n",
+  "functions": [
+    {
+      "fileId": "0",
+      "changeId": "function:price",
+      "name": "price",
+      "path": "pricing.py",
+      "executable": [
+        2,
+        3,
+        4
+      ],
+      "covered": [
+        2,
+        4
+      ],
+      "contexts": {
+        "2": [
+          "test_pricing.py::test_regular"
+        ],
+        "3": [],
+        "4": [
+          "test_pricing.py::test_regular"
+        ]
+      },
+      "tests": [
+        "test_pricing.py::test_regular"
+      ]
+    },
+    {
+      "fileId": "0",
+      "changeId": "function:refund",
+      "name": "refund",
+      "path": "pricing.py",
+      "executable": [
+        8
+      ],
+      "covered": [],
+      "contexts": {
+        "8": []
+      },
+      "tests": []
+    },
+    {
+      "fileId": "1",
+      "changeId": "function:test_regular",
+      "name": "test_regular",
+      "path": "test_pricing.py",
+      "executable": [
+        6
+      ],
+      "covered": [
+        6
+      ],
+      "contexts": {
+        "6": [
+          "test_pricing.py::test_regular"
+        ]
+      },
+      "tests": [
+        "test_pricing.py::test_regular"
+      ]
+    },
+    {
+      "fileId": "1",
+      "changeId": "function:test_bulk",
+      "name": "test_bulk",
+      "path": "test_pricing.py",
+      "executable": [
+        11
+      ],
+      "covered": [],
+      "contexts": {
+        "11": []
+      },
+      "tests": []
+    }
+  ],
+  "exitCode": 0,
+  "report": {
+    "meta": {
+      "format": 3,
+      "version": "7.16.2",
+      "timestamp": "2026-10-14T07:20:34.613178",
+      "branch_coverage": false,
+      "show_contexts": true
+    },
+    "files": {
+      "pricing.py": {
+        "executed_lines": [
+          1,
+          2,
+          4,
+          7
+        ],
+        "summary": {
+          "covered_lines": 4,
+          "num_statements": 6,
+          "percent_covered": 66.66666666666667,
+          "percent_covered_display": "67",
+          "missing_lines": 2,
+          "excluded_lines": 0,
+          "percent_statements_covered": 66.66666666666667,
+          "percent_statements_covered_display": "67"
+        },
+        "missing_lines": [
+          3,
+          8
+        ],
+        "excluded_lines": [],
+        "contexts": {
+          "1": [
+            ""
+          ],
+          "2": [
+            "test_pricing.py::test_regular|run"
+          ],
+          "4": [
+            "test_pricing.py::test_regular|run"
+          ],
+          "7": [
+            ""
+          ]
+        },
+        "functions": {
+          "price": {
+            "executed_lines": [
+              2,
+              4
+            ],
+            "summary": {
+              "covered_lines": 2,
+              "num_statements": 3,
+              "percent_covered": 66.66666666666667,
+              "percent_covered_display": "67",
+              "missing_lines": 1,
+              "excluded_lines": 0,
+              "percent_statements_covered": 66.66666666666667,
+              "percent_statements_covered_display": "67"
+            },
+            "missing_lines": [
+              3
+            ],
+            "excluded_lines": [],
+            "start_line": 1,
+            "contexts": {
+              "1": [
+                ""
+              ],
+              "2": [
+                "test_pricing.py::test_regular|run"
+              ],
+              "4": [
+                "test_pricing.py::test_regular|run"
+              ],
+              "7": [
+                ""
+              ]
+            }
+          },
+          "refund": {
+            "executed_lines": [],
+            "summary": {
+              "covered_lines": 0,
+              "num_statements": 1,
+              "percent_covered": 0,
+              "percent_covered_display": "0",
+              "missing_lines": 1,
+              "excluded_lines": 0,
+              "percent_statements_covered": 0,
+              "percent_statements_covered_display": "0"
+            },
+            "missing_lines": [
+              8
+            ],
+            "excluded_lines": [],
+            "start_line": 7,
+            "contexts": {
+              "1": [
+                ""
+              ],
+              "2": [
+                "test_pricing.py::test_regular|run"
+              ],
+              "4": [
+                "test_pricing.py::test_regular|run"
+              ],
+              "7": [
+                ""
+              ]
+            }
+          },
+          "": {
+            "executed_lines": [
+              1,
+              7
+            ],
+            "summary": {
+              "covered_lines": 2,
+              "num_statements": 2,
+              "percent_covered": 100,
+              "percent_covered_display": "100",
+              "missing_lines": 0,
+              "excluded_lines": 0,
+              "percent_statements_covered": 100,
+              "percent_statements_covered_display": "100"
+            },
+            "missing_lines": [],
+            "excluded_lines": [],
+            "start_line": 1,
+            "contexts": {
+              "1": [
+                ""
+              ],
+              "2": [
+                "test_pricing.py::test_regular|run"
+              ],
+              "4": [
+                "test_pricing.py::test_regular|run"
+              ],
+              "7": [
+                ""
+              ]
+            }
+          }
+        },
+        "classes": {
+          "": {
+            "executed_lines": [
+              1,
+              2,
+              4,
+              7
+            ],
+            "summary": {
+              "covered_lines": 4,
+              "num_statements": 6,
+              "percent_covered": 66.66666666666667,
+              "percent_covered_display": "67",
+              "missing_lines": 2,
+              "excluded_lines": 0,
+              "percent_statements_covered": 66.66666666666667,
+              "percent_statements_covered_display": "67"
+            },
+            "missing_lines": [
+              3,
+              8
+            ],
+            "excluded_lines": [],
+            "start_line": 1,
+            "contexts": {
+              "1": [
+                ""
+              ],
+              "2": [
+                "test_pricing.py::test_regular|run"
+              ],
+              "4": [
+                "test_pricing.py::test_regular|run"
+              ],
+              "7": [
+                ""
+              ]
+            }
+          }
+        }
+      },
+      "test_pricing.py": {
+        "executed_lines": [
+          1,
+          2,
+          5,
+          6,
+          9,
+          10
+        ],
+        "summary": {
+          "covered_lines": 6,
+          "num_statements": 7,
+          "percent_covered": 85.71428571428571,
+          "percent_covered_display": "86",
+          "missing_lines": 1,
+          "excluded_lines": 0,
+          "percent_statements_covered": 85.71428571428571,
+          "percent_statements_covered_display": "86"
+        },
+        "missing_lines": [
+          11
+        ],
+        "excluded_lines": [],
+        "contexts": {
+          "1": [
+            ""
+          ],
+          "2": [
+            ""
+          ],
+          "5": [
+            ""
+          ],
+          "6": [
+            "test_pricing.py::test_regular|run"
+          ],
+          "9": [
+            ""
+          ],
+          "10": [
+            ""
+          ]
+        },
+        "functions": {
+          "test_regular": {
+            "executed_lines": [
+              6
+            ],
+            "summary": {
+              "covered_lines": 1,
+              "num_statements": 1,
+              "percent_covered": 100,
+              "percent_covered_display": "100",
+              "missing_lines": 0,
+              "excluded_lines": 0,
+              "percent_statements_covered": 100,
+              "percent_statements_covered_display": "100"
+            },
+            "missing_lines": [],
+            "excluded_lines": [],
+            "start_line": 5,
+            "contexts": {
+              "1": [
+                ""
+              ],
+              "2": [
+                ""
+              ],
+              "5": [
+                ""
+              ],
+              "6": [
+                "test_pricing.py::test_regular|run"
+              ],
+              "9": [
+                ""
+              ],
+              "10": [
+                ""
+              ]
+            }
+          },
+          "test_bulk": {
+            "executed_lines": [],
+            "summary": {
+              "covered_lines": 0,
+              "num_statements": 1,
+              "percent_covered": 0,
+              "percent_covered_display": "0",
+              "missing_lines": 1,
+              "excluded_lines": 0,
+              "percent_statements_covered": 0,
+              "percent_statements_covered_display": "0"
+            },
+            "missing_lines": [
+              11
+            ],
+            "excluded_lines": [],
+            "start_line": 10,
+            "contexts": {
+              "1": [
+                ""
+              ],
+              "2": [
+                ""
+              ],
+              "5": [
+                ""
+              ],
+              "6": [
+                "test_pricing.py::test_regular|run"
+              ],
+              "9": [
+                ""
+              ],
+              "10": [
+                ""
+              ]
+            }
+          },
+          "": {
+            "executed_lines": [
+              1,
+              2,
+              5,
+              9,
+              10
+            ],
+            "summary": {
+              "covered_lines": 5,
+              "num_statements": 5,
+              "percent_covered": 100,
+              "percent_covered_display": "100",
+              "missing_lines": 0,
+              "excluded_lines": 0,
+              "percent_statements_covered": 100,
+              "percent_statements_covered_display": "100"
+            },
+            "missing_lines": [],
+            "excluded_lines": [],
+            "start_line": 1,
+            "contexts": {
+              "1": [
+                ""
+              ],
+              "2": [
+                ""
+              ],
+              "5": [
+                ""
+              ],
+              "6": [
+                "test_pricing.py::test_regular|run"
+              ],
+              "9": [
+                ""
+              ],
+              "10": [
+                ""
+              ]
+            }
+          }
+        },
+        "classes": {
+          "": {
+            "executed_lines": [
+              1,
+              2,
+              5,
+              6,
+              9,
+              10
+            ],
+            "summary": {
+              "covered_lines": 6,
+              "num_statements": 7,
+              "percent_covered": 85.71428571428571,
+              "percent_covered_display": "86",
+              "missing_lines": 1,
+              "excluded_lines": 0,
+              "percent_statements_covered": 85.71428571428571,
+              "percent_statements_covered_display": "86"
+            },
+            "missing_lines": [
+              11
+            ],
+            "excluded_lines": [],
+            "start_line": 1,
+            "contexts": {
+              "1": [
+                ""
+              ],
+              "2": [
+                ""
+              ],
+              "5": [
+                ""
+              ],
+              "6": [
+                "test_pricing.py::test_regular|run"
+              ],
+              "9": [
+                ""
+              ],
+              "10": [
+                ""
+              ]
+            }
+          }
+        }
+      }
+    },
+    "totals": {
+      "covered_lines": 10,
+      "num_statements": 13,
+      "percent_covered": 76.92307692307692,
+      "percent_covered_display": "77",
+      "missing_lines": 3,
+      "excluded_lines": 0,
+      "percent_statements_covered": 76.92307692307692,
+      "percent_statements_covered_display": "77"
+    }
+  }
+}

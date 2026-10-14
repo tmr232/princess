@@ -30,7 +30,7 @@ All code diffs offer **Side-by-side** (the default) and **Inline** layouts. The 
 
 ## Scope and semantics
 
-- Compares the two commit snapshots directly (not merge-base/PR semantics); never checks out revisions or executes reviewed Python.
+- Compares the two commit snapshots directly (not merge-base/PR semantics); static review does not execute Python. Coverage runs execute the reviewed head snapshot only when explicitly triggered.
 - Git identifies changed files and file renames. ast-grep outline supplies the structural inventory. Tree-sitter supplements nested definitions, decorator ranges, and graph selection.
 - Definitions are paired by qualified name and kind (renames appear as add/remove); repeated names use occurrence order. Exact definition-text comparison includes body, decorators, comments, and formatting. Classes and enclosing functions roll up child changes.
 - Changes outside recognized definitions appear as module-level changes. Syntax errors stop analysis with an explicit error rather than silently omitting results.
@@ -43,3 +43,23 @@ bun test
 ```
 
 Upstream engine attribution and pinned revision are in `vendor/explorer/`.
+
+## On-demand pytest coverage
+
+Expand **Pytest coverage**, choose the added or modified tests, and click **Run selected tests with coverage**. Princess runs `uv run pytest <node IDs> --cov=. --cov-context=test --cov-report=` against a temporary Git archive of the reviewed head commit. Your checkout is untouched. The reviewed project must provide pytest and pytest-cov through its uv environment; dependency installation follows normal `uv run` behavior. The runner is fixed for now.
+
+Tests are detected using conventional `test_*.py` / `*_test.py` filenames and `test*` functions, including methods on `Test*` classes. Removed tests and nested helper functions are excluded. Selecting a parametrized test runs all its cases; results retain individual case IDs. Custom pytest collection naming is not supported yet.
+
+Select a changed function to see which tests reached its body, or expand **All changed functions** to see the mapping for the whole change. Import/definition execution and setup/teardown contexts are excluded. Nested function bodies are attributed to their own function. A reached function can still have uncovered lines or branches. Removed functions have no head coverage. Failed pytest runs retain any available coverage and show the exit code; tool/dependency errors show run output. Runs time out after five minutes per command; concurrent runs are rejected.
+
+`GET /api/coverage` includes per-function executable/covered lines and per-line test contexts for future line-level visualization. **Download coverage JSON** exports revision IDs, selections, function mappings, and the complete raw line-context report. Results remain in server memory until the next run or server shutdown. The API accepts only test selectors detected in the current review, and starting a run requires a same-origin POST. The existing local server trust model still applies: coverage executes repository code, and an isolated snapshot is not a security sandbox.
+
+### Reproduce the demo
+
+```sh
+python examples/coverage-demo/create.py /tmp/princess-coverage-demo
+bun run build
+bun run review --repo /tmp/princess-coverage-demo --base HEAD~ --head HEAD --port 3001
+```
+
+The demo adds bulk pricing and two changed tests. Running both test selectors executes three cases, covers `price`, and leaves `refund` unreached. Running only `test_regular` reaches two of the three executable lines in `price`. Screenshots and an example context report are in `artifacts/`.

@@ -1,3 +1,4 @@
+import { CoverageRunner } from "./coverage";
 import { Command } from "commander";
 import { resolve, sep } from "node:path";
 import { createReview, createInterface } from "./review";
@@ -30,11 +31,28 @@ try {
     options.base,
     options.head,
   );
+  const coverage = new CoverageRunner(review, sources);
   const server = Bun.serve({
     hostname: options.host,
     port,
     async fetch(request) {
       const url = new URL(request.url);
+      if (url.pathname === "/api/coverage") {
+        if (request.method === "GET") return Response.json(coverage.state);
+        if (request.method === "POST") {
+          if (request.headers.get("origin") !== url.origin)
+            return new Response("Same-origin request required", { status: 403 });
+          try {
+            const body = await request.json();
+            if (!Array.isArray(body.tests) || body.tests.some((id: unknown) => typeof id !== "string"))
+              return new Response("Expected test node IDs", { status: 400 });
+            coverage.start(body.tests);
+            return Response.json(coverage.state, { status: 202 });
+          } catch (error) {
+            return Response.json({ error: String(error) }, { status: coverage.state.status === "running" ? 409 : 400 });
+          }
+        }
+      }
       if (request.method !== "GET")
         return new Response("Method not allowed", { status: 405 });
       if (url.pathname === "/api/review") return Response.json(review);
