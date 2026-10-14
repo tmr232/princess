@@ -46,6 +46,7 @@
       // remains the source of truth until the user clears it.
       onSearchChange: value => { if (value === null) queueMicrotask(() => { if (query) tree?.setSearch(query); }); },
       density: "default", icons: "minimal", overscan: 8,
+      unsafeCSS: `[data-item-type="file"][aria-label^="ƒ "] [data-item-section="icon"] { display: none; }`,
       renderRowDecoration: ({ row }) => {
         const entry = data.rows.get(normalize(row.path));
         return entry ? { text: "", title: entry.title } : null;
