@@ -44,8 +44,12 @@ head = base.replace('    return unit_price(product) * quantity', '    return dis
 
 def discount(total, quantity):
     if quantity >= 10:
-        return total * 0.8
+        return apply_bulk(total)
     return total
+
+
+def apply_bulk(total):
+    return total * 0.8
 '''
 (repo / "orders.py").write_text(head)
 (repo / "test_orders.py").write_text('''import pytest
@@ -59,6 +63,10 @@ def test_order():
 @pytest.mark.parametrize("quantity,expected", [(10, 96), (20, 192)])
 def test_bulk(quantity, expected):
     assert order_total([("book", quantity)]) == expected
+
+
+def test_paths():
+    assert order_total([("book", 2), ("pen", 10), ("book", 3)]) == 100
 
 
 def test_failure():

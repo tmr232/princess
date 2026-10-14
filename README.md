@@ -89,4 +89,15 @@ bun run build
 bun run review --repo /tmp/princess-trace-demo --base HEAD~ --head HEAD --port 3002
 ```
 
-Select `test_order` and `test_bulk` for a passing demonstration. `test_order` produces eight activations, including two calls each to `line_total`, `unit_price`, and `discount`. The two parametrized bulk cases produce five activations each. `test_failure` demonstrates retaining a failing test's call path. Screenshots are `artifacts/function-trace-canvas.png` and `artifacts/function-trace-call.png`; `artifacts/function-trace-report.json` contains an example report.
+Select `test_order` and `test_bulk` for a passing demonstration. `test_order` produces eight activations, including two calls each to `line_total`, `unit_price`, and `discount`. The two parametrized bulk cases produce six activations each, including the bulk-discount helper. `test_paths` loops through three orders and takes two different downstream paths, demonstrating call-stack deduplication. `test_failure` demonstrates retaining a failing test's call path. Screenshots are `artifacts/function-trace-canvas.png` and `artifacts/function-trace-call.png`; `artifacts/function-trace-report.json` contains an example report.
+
+
+### Deduplicating repeated call stacks
+
+**Deduplicate call stacks** is an optional canvas mode. Activations with the same complete observed function stack, caller locations, and thread identity share one block. Counts and invocation IDs remain available, and turning the option off restores one block per activation. Recursion at different depths, different call sites, and different threads stay separate.
+
+If repeated invocations take different downstream function-call paths, arrows retain separate colors and path labels through shared blocks. The comparison includes the ordered sequence and repetition of descendant calls. Identical downstream paths share a color/count; a difference deeper in the tree remains visible even when the intermediate blocks are collapsed. The path legend identifies the corresponding root invocation IDs. Click a path to isolate it, or **Show all paths** to restore the complete canvas. The full-source panel lets you select an individual invocation behind a collapsed block. Colors describe invocation paths within the selected test case, rather than combining separate test cases.
+
+Path identities are computed from the entire captured case, so progressive reveal and display limits do not reassign colors. In deduplicated mode the initial display limit applies to distinct call stacks, allowing a long loop to retain all captured repetition counts without expanding every iteration. Function-flow traces cannot distinguish branches that execute the same function-call sequence. Capture truncation still applies.
+
+In the trace demo, run only `test_paths`: twelve activations collapse to six blocks. Two normal iterations share one path; the bulk iteration takes the other path and reaches `apply_bulk`. Screenshots are `artifacts/function-trace-deduplicated.png` and `artifacts/function-trace-path-filter.png`.
