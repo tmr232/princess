@@ -10,11 +10,11 @@
   import GraphPane from "./GraphPane.svelte";
   import CodeDiff from "./CodeDiff.svelte";
   import type { CoverageState } from "./coverage";
+  import CoverageExplorer from "./CoverageExplorer.svelte";
   import CoveragePanel from "./CoveragePanel.svelte";
   import FunctionGraphs from "./FunctionGraphs.svelte";
   type View = "graph" | "code" | "functions" | "combined";
   let tab: "review" | "coverage" = "review";
-  let coverageTest = "";
   let coverageState: CoverageState | null = null;
   let view: View = "graph";
   let singleView: Exclude<View, "functions"> = "graph";
@@ -99,16 +99,12 @@
     }
     if (selected) void select(fileId, filePath, selected);
   }
+  let coverageMode: "run" | "explore" = "run";
+  let coverageSelection: { fileId: string; changeId: string } | null = null;
   function inspectCoverage(id: string, changeId: string) {
-    tab = "review";
-    const file = review?.files.find(f => f.id === id);
-    const change = file?.changes.find(c => c.id === changeId);
-    if (file && change) {
-      view = "code";
-      singleView = "code";
-      codeMode = "source";
-      void select(file.id, file.path, change);
-    } else setView("code");
+    tab = "coverage";
+    coverageMode = "explore";
+    coverageSelection = { fileId: id, changeId };
   }
   function focusFunction(id: string, path: string, change: Change) {
     returnToFunctions = true;
@@ -425,9 +421,6 @@
           {/if}
           {#key `${generation}-${diffStyle}`}
             <CodeDiff
-              coverage={coverageState?.status === "complete" ? coverageState.report?.files[filePath] : undefined}
-              coverageStatus={coverageState?.status ?? "idle"}
-              bind:testFilter={coverageTest}
               before={codeBefore}
               after={codeAfter}
               wrap={interfaceView}
@@ -513,9 +506,16 @@
   </article>
 </main>
 <div class="coverage-page" hidden={tab !== "coverage"}>
-  <h1>Tests &amp; coverage</h1>
-  <p>Run changed tests, then return to Review to explore coverage on the code.</p>
-  {#if review}<CoveragePanel {review} {fileId} selectedId={selected?.id ?? ""} bind:state={coverageState} oninspect={inspectCoverage} />{/if}
+  <div class="coverage-tabs" role="group" aria-label="Coverage workspace">
+    <button class:active={coverageMode === "run"} aria-pressed={coverageMode === "run"} onclick={() => coverageMode = "run"}>Run tests</button>
+    <button class:active={coverageMode === "explore"} aria-pressed={coverageMode === "explore"} onclick={() => coverageMode = "explore"}>Explore coverage</button>
+  </div>
+  <div class="coverage-run" hidden={coverageMode !== "run"}>
+    <h1>Run tests with coverage</h1>
+    <p>Choose changed tests, then explore their associations with changed functions.</p>
+    {#if review}<CoveragePanel {review} {fileId} selectedId={selected?.id ?? ""} bind:state={coverageState} oninspect={inspectCoverage} />{/if}
+  </div>
+  {#if review}<div class="coverage-explore" hidden={coverageMode !== "explore"}><CoverageExplorer {review} state={coverageState} initialSelection={coverageSelection} /></div>{/if}
 </div>
 
 <style>
@@ -541,9 +541,14 @@
     justify-content: space-between;
     padding: 0 28px;
   }
-  main[hidden], .coverage-page[hidden] { display: none; }
-  .coverage-page { padding: 28px; height: calc(100vh - 72px); overflow: auto; }
-  .coverage-page > p { color: #63758a; font-size: 13px; }
+  main[hidden], .coverage-page[hidden], .coverage-run[hidden], .coverage-explore[hidden] { display: none; }
+  .coverage-page { display: flex; flex-direction: column; height: calc(100vh - 72px); }
+  .coverage-tabs { display: flex; gap: 8px; padding: 12px 28px; border-bottom: 1px solid #dce3eb; background: white; }
+  .coverage-tabs button { width: auto; padding: 8px 16px; border-radius: 5px; font-size: 13px; }
+  .coverage-tabs button.active { box-shadow: none; }
+  .coverage-run { padding: 28px; overflow: auto; }
+  .coverage-run > p { color: #63758a; font-size: 13px; }
+  .coverage-explore { flex: 1; min-height: 0; }
   header nav { display: flex; gap: 8px; }
   header nav button { width: auto; color: #c3cddb; border-radius: 6px; padding: 10px 16px; font-size: 13px; }
   header nav button.active, header nav button:hover { color: white; background: #2c405a; box-shadow: none; }
@@ -710,10 +715,6 @@
   .detail-content.combined {
     overflow: auto;
     gap: 16px;
-  }
-  .combined :global(.code-review) {
-    flex: none;
-    min-height: 120px;
   }
   .combined :global(.code-diff) {
     flex: none;

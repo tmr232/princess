@@ -1,6 +1,8 @@
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, basename } from "node:path";
+import { join } from "node:path";
+import { testTargets } from "./testTargets";
+export { testTargets } from "./testTargets";
 import { analyze } from "./review";
 import type { SymbolInfo } from "./model";
 import type { Review } from "./model";
@@ -17,19 +19,6 @@ export type CoverageState = {
   output: string; error?: string; exitCode?: number; functions: FunctionCoverage[]; report?: CoverageReport;
 };
 
-export function testTargets(review: Review): TestTarget[] {
-  return review.files.flatMap(file => {
-    if (!/^test_.*\.py$|^.*_test\.py$/.test(basename(file.path))) return [];
-    return file.changes.flatMap(change => {
-      const symbol = change.after;
-      if (!symbol || change.kind !== "function" || !change.name.startsWith("test")) return [];
-      const owners = symbol.parent?.split(".") ?? [];
-      if (owners.some(owner => !owner.startsWith("Test") || owner.includes("#"))) return [];
-      if (symbol.id.includes("#")) return [];
-      return [{ nodeid: [file.path, ...owners, change.name].join("::"), fileId: file.id, changeId: change.id }];
-    });
-  });
-}
 
 export type CoverageReport = { files: Record<string, { executed_lines: number[]; missing_lines: number[]; contexts?: Record<string, string[]> }> };
 export function mapCoverage(review: Review, sources: Map<string, { after: string | null }>, report: CoverageReport, inventories = new Map<string, SymbolInfo[]>()): FunctionCoverage[] {
