@@ -8,6 +8,7 @@
   } from "./model";
   import { graph } from "./graphs";
   import GraphPane from "./GraphPane.svelte";
+  import ReviewTree from "./ReviewTree.svelte";
   import CodeDiff from "./CodeDiff.svelte";
   import type { CoverageState } from "./coverage";
   import CoverageExplorer from "./CoverageExplorer.svelte";
@@ -193,73 +194,9 @@
         {review?.files.length === 1 ? "file" : "files"}</span
       >
     </div>
-    {#each review?.files ?? [] as file}
-      <section class="file">
-        <h2
-          title={file.oldPath !== file.path
-            ? `Renamed from ${file.oldPath}`
-            : file.path}
-        >
-          <span>◇</span>
-          {#if file.supported}
-            <button
-              class="file-select"
-              class:active={selected?.kind === "module" && fileId === file.id}
-              aria-label={`View module ${file.path}`}
-              onclick={() =>
-                select(file.id, file.path, {
-                  id: "$module",
-                  name: file.path,
-                  kind: "module",
-                  parent: null,
-                  status:
-                    file.status === "A"
-                      ? "added"
-                      : file.status === "D"
-                        ? "removed"
-                        : "modified",
-                  before: null,
-                  after: null,
-                })}>{file.path}</button
-            >
-          {:else}{file.path}{/if}
-          <small>{file.status.startsWith("R") ? "renamed" : file.status}</small>
-        </h2>
-        {#if !file.supported}<p class="muted">
-            Non-Python file · file change only
-          </p>{/if}
-        {#each file.changes as change}
-          <button
-            class:active={selected?.id === change.id && fileId === file.id}
-            style:padding-left={`${14 + (change.parent?.split(".").length ?? 0) * 16}px`}
-            onclick={() => select(file.id, file.path, change)}
-          >
-            <span class="kind"
-              >{change.kind === "class"
-                ? "C"
-                : change.kind === "function"
-                  ? "ƒ"
-                  : "·"}</span
-            ><span class="name">{change.name}</span><span
-              class={`status ${change.status}`}
-              >{change.status === "added"
-                ? "+"
-                : change.status === "removed"
-                  ? "−"
-                  : "~"}</span
-            >
-          </button>
-        {/each}
-        {#if file.supported && !file.changes.length}<p class="muted">
-            No definition changes
-          </p>{/if}
-      </section>
-    {/each}
-    {#if review && !review.files.length}<p class="muted">
-        No changes between these commits.
-      </p>{/if}
+    {#if review}<ReviewTree {review} {fileId} selectedId={selected?.id ?? ""} onselect={select} />{/if}
     <footer>
-      + added &nbsp; − removed &nbsp; ~ modified<br />Summary contains
+      A added &nbsp; D removed &nbsp; M modified &nbsp; R renamed<br />Summary contains
       structure, not code.
     </footer>
   </aside>
@@ -580,7 +517,8 @@
   aside {
     background: #fff;
     border-right: 1px solid #dce3eb;
-    overflow: auto;
+    overflow: hidden;
+    min-height: 0;
     display: flex;
     flex-direction: column;
   }
@@ -595,32 +533,6 @@
     float: right;
     letter-spacing: 0;
     font-weight: 400;
-  }
-  .file {
-    padding-bottom: 16px;
-  }
-  .file h2 {
-    font-size: 13px;
-    font-weight: 650;
-    margin: 0;
-    padding: 10px 14px;
-    overflow-wrap: anywhere;
-    background: #f7f9fc;
-  }
-  .file h2 span {
-    color: #73869b;
-  }
-  .file-select {
-    display: inline;
-    width: auto;
-    padding: 2px 4px;
-    font-weight: inherit;
-    overflow-wrap: anywhere;
-  }
-  small {
-    font-size: 10px;
-    color: #778698;
-    margin-left: 5px;
   }
   button {
     width: 100%;
@@ -642,29 +554,6 @@
     color: #3455aa;
     box-shadow: inset 3px 0 #5374d6;
   }
-  .kind {
-    color: #798ba3;
-    width: 15px;
-    font-family: monospace;
-  }
-  .name {
-    overflow-wrap: anywhere;
-    flex: 1;
-    font-size: 13px;
-  }
-  .status {
-    font-family: monospace;
-    font-size: 16px;
-  }
-  .added {
-    color: #258459;
-  }
-  .removed {
-    color: #c2525a;
-  }
-  .modified {
-    color: #b77e24;
-  }
   footer {
     margin-top: auto;
     padding: 20px;
@@ -672,11 +561,6 @@
     color: #8b98a8;
     line-height: 2;
     border-top: 1px solid #edf0f4;
-  }
-  .muted {
-    font-size: 12px;
-    color: #8b98a8;
-    padding: 0 18px;
   }
   article {
     padding: 26px;
