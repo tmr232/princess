@@ -1,3 +1,4 @@
+import { TraceRunner } from "./trace";
 import { CoverageRunner } from "./coverage";
 import { Command } from "commander";
 import { resolve, sep } from "node:path";
@@ -32,13 +33,15 @@ try {
     options.head,
   );
   const coverage = new CoverageRunner(review, sources);
+  const trace = new TraceRunner(review, sources);
   const server = Bun.serve({
     hostname: options.host,
     port,
     async fetch(request) {
       const url = new URL(request.url);
-      if (url.pathname === "/api/coverage") {
-        if (request.method === "GET") return Response.json(coverage.state);
+      if (url.pathname === "/api/coverage" || url.pathname === "/api/trace") {
+        const runner = url.pathname === "/api/trace" ? trace : coverage;
+        if (request.method === "GET") return Response.json(runner.state);
         if (request.method === "POST") {
           if (request.headers.get("origin") !== url.origin)
             return new Response("Same-origin request required", { status: 403 });
@@ -46,10 +49,12 @@ try {
             const body = await request.json();
             if (!Array.isArray(body.tests) || body.tests.some((id: unknown) => typeof id !== "string"))
               return new Response("Expected test node IDs", { status: 400 });
-            coverage.start(body.tests);
-            return Response.json(coverage.state, { status: 202 });
+            if (coverage.state.status === "running" || trace.state.status === "running")
+              return Response.json({ error: "A test run is already in progress" }, { status: 409 });
+            runner.start(body.tests);
+            return Response.json(runner.state, { status: 202 });
           } catch (error) {
-            return Response.json({ error: String(error) }, { status: coverage.state.status === "running" ? 409 : 400 });
+            return Response.json({ error: String(error) }, { status: runner.state.status === "running" ? 409 : 400 });
           }
         }
       }

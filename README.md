@@ -69,3 +69,24 @@ bun run review --repo /tmp/princess-coverage-demo --base HEAD~ --head HEAD --por
 ```
 
 The demo adds bulk pricing and two changed tests. Running both test selectors executes three cases, covers `price`, and leaves `refund` unreached. Running only `test_regular` reaches two of the three executable lines in `price`. Current explorer screenshots are `artifacts/coverage-explorer-by-test.png`, `artifacts/coverage-explorer-by-function.png`, and `artifacts/coverage-explorer-gap.png`. Earlier UI screenshots and an example context report are also in `artifacts/`.
+
+
+## Function traces
+
+In **Tests & coverage → Function traces**, select changed tests and click **Run selected tests with tracing**. This is a separate run from coverage: `uv run pytest <node IDs> -p princess_trace -p no:pytest_cov -o addopts=`. Only uv and pytest are required. The bundled plugin is supplied outside the temporary head snapshot. Default pytest extra arguments (`addopts` / `PYTEST_ADDOPTS`) are cleared for this mode so project defaults do not enable coverage or parallel subprocess workers. Collection/configuration otherwise uses the reviewed project.
+
+Choose a recorded test case to open a pan-and-zoom call canvas inspired by the call-path bubbles in *Debugger Canvas* (DeLine et al., ICSE 2012). Each Python function activation gets a numbered source block, including unchanged repository functions, repeated calls, and recursive calls. Solid arrows connect callers to callees; call-site lines appear in the blocks. Generator/coroutine resumptions get new blocks with dashed continuation arrows. Use **Reveal calls** to expose the execution sequence, the call-order strip to focus a block, and **Fit canvas** / zoom controls to navigate. Selecting a block provides its full head source. Changed functions are labeled added/modified.
+
+Capture covers Git-tracked repository Python files during test **call** phases. It omits module and class-body frames, fixture setup/teardown, built-in/C calls and external libraries. Calls in newly started threads during a test body are recorded as separate roots when there is no observed Python caller; existing worker threads and subprocesses are not instrumented. This is a recorded function-flow view, not an interactive debugger or a branch/line execution trace. Calls through excluded library code connect to the nearest recorded repository ancestor. Function activations do not imply every line in the displayed source ran.
+
+Call records contain function identities, source locations, parent IDs, call/return ordering, thread numbers, and resume links. They do not contain arguments, locals, return values, or exception values. The optional run-output section is ordinary pytest output and can include pytest assertion diagnostics/prints. Failed tests retain their traces and outcomes. Runs share the existing same-origin/API-selector validation and timeout behavior, and coverage/trace runs cannot overlap. Traces are bounded at 2,000 activations per test case and 10,000 per run; truncation is explicit. The canvas initially displays up to 200 blocks, with **Show next 200** for larger traces. **Download trace JSON** saves revision IDs and the report; server results last until the next trace run or shutdown.
+
+### Reproduce the trace demo
+
+```sh
+python examples/trace-demo/create.py /tmp/princess-trace-demo
+bun run build
+bun run review --repo /tmp/princess-trace-demo --base HEAD~ --head HEAD --port 3002
+```
+
+Select `test_order` and `test_bulk` for a passing demonstration. `test_order` produces eight activations, including two calls each to `line_total`, `unit_price`, and `discount`. The two parametrized bulk cases produce five activations each. `test_failure` demonstrates retaining a failing test's call path. Screenshots are `artifacts/function-trace-canvas.png` and `artifacts/function-trace-call.png`; `artifacts/function-trace-report.json` contains an example report.

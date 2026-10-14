@@ -11,10 +11,13 @@
   import CodeDiff from "./CodeDiff.svelte";
   import type { CoverageState } from "./coverage";
   import CoverageExplorer from "./CoverageExplorer.svelte";
+  import TraceView from "./TraceView.svelte";
+  import type { TraceState } from "./trace";
   import CoveragePanel from "./CoveragePanel.svelte";
   import FunctionGraphs from "./FunctionGraphs.svelte";
   type View = "graph" | "code" | "functions" | "combined";
   let tab: "review" | "coverage" = "review";
+  let traceState: TraceState | null = null;
   let coverageState: CoverageState | null = null;
   let view: View = "graph";
   let singleView: Exclude<View, "functions"> = "graph";
@@ -99,7 +102,7 @@
     }
     if (selected) void select(fileId, filePath, selected);
   }
-  let coverageMode: "run" | "explore" = "run";
+  let coverageMode: "run" | "explore" | "trace" = "run";
   let coverageSelection: { fileId: string; changeId: string } | null = null;
   function inspectCoverage(id: string, changeId: string) {
     tab = "coverage";
@@ -174,7 +177,7 @@
   </div>
   <nav aria-label="Main navigation">
     <button class:active={tab === "review"} aria-pressed={tab === "review"} onclick={() => tab = "review"}>Review</button>
-    <button class:active={tab === "coverage"} aria-pressed={tab === "coverage"} onclick={() => tab = "coverage"}>Tests &amp; coverage{coverageState?.status === "running" ? " · Running…" : ""}</button>
+    <button class:active={tab === "coverage"} aria-pressed={tab === "coverage"} onclick={() => tab = "coverage"}>Tests &amp; coverage{(coverageState?.status === "running" || traceState?.status === "running") ? " · Running…" : ""}</button>
   </nav>
   <span class="revisions"
     >{review
@@ -509,12 +512,14 @@
   <div class="coverage-tabs" role="group" aria-label="Coverage workspace">
     <button class:active={coverageMode === "run"} aria-pressed={coverageMode === "run"} onclick={() => coverageMode = "run"}>Run tests</button>
     <button class:active={coverageMode === "explore"} aria-pressed={coverageMode === "explore"} onclick={() => coverageMode = "explore"}>Explore coverage</button>
+    <button class:active={coverageMode === "trace"} aria-pressed={coverageMode === "trace"} onclick={() => coverageMode = "trace"}>Function traces</button>
   </div>
   <div class="coverage-run" hidden={coverageMode !== "run"}>
     <h1>Run tests with coverage</h1>
     <p>Choose changed tests, then explore their associations with changed functions.</p>
     {#if review}<CoveragePanel {review} {fileId} selectedId={selected?.id ?? ""} bind:state={coverageState} oninspect={inspectCoverage} />{/if}
   </div>
+  {#if review}<div class="coverage-explore" hidden={coverageMode !== "trace"}><TraceView {review} bind:state={traceState} /></div>{/if}
   {#if review}<div class="coverage-explore" hidden={coverageMode !== "explore"}><CoverageExplorer {review} state={coverageState} initialSelection={coverageSelection} /></div>{/if}
 </div>
 
