@@ -1,0 +1,304 @@
+{
+  "base": "5ccb05eb6973b2bd2c99553934fe55079d29acc9",
+  "head": "29416a567d3226400b2f9edcc3fa0db1c497f13f",
+  "status": "complete",
+  "targets": [
+    {
+      "nodeid": "test_orders.py::test_order",
+      "fileId": "1",
+      "changeId": "function:test_order"
+    },
+    {
+      "nodeid": "test_orders.py::test_bulk",
+      "fileId": "1",
+      "changeId": "function:test_bulk"
+    },
+    {
+      "nodeid": "test_orders.py::test_failure",
+      "fileId": "1",
+      "changeId": "function:test_failure"
+    }
+  ],
+  "selected": [
+    "test_orders.py::test_order",
+    "test_orders.py::test_bulk"
+  ],
+  "command": "uv run pytest \"test_orders.py::test_order\" \"test_orders.py::test_bulk\" -p princess_trace -p no:pytest_cov -o addopts=",
+  "output": "Using CPython 3.12.14 interpreter at: /opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3\nCreating virtual environment at: .venv\nInstalled 5 packages in 3ms\n============================= test session starts ==============================\nplatform linux -- Python 3.12.14, pytest-9.1.1, pluggy-1.6.0\nrootdir: /tmp/princess-trace-h7CukU/repo\nconfigfile: pyproject.toml\ncollected 3 items\n\ntest_orders.py ...                                                       [100%]\n\n============================== 3 passed in 0.02s ===============================\n",
+  "functions": [
+    {
+      "id": "test_orders.py:5:test_order",
+      "name": "test_order",
+      "path": "test_orders.py",
+      "line": 5,
+      "endLine": 6,
+      "source": "def test_order():\n    assert order_total([(\"book\", 2), (\"pen\", 3)]) == 39",
+      "change": "modified"
+    },
+    {
+      "id": "orders.py:11:order_total",
+      "name": "order_total",
+      "path": "orders.py",
+      "line": 11,
+      "endLine": 15,
+      "source": "def order_total(items):\n    total = 0\n    for product, quantity in items:\n        total += line_total(product, quantity)\n    return total"
+    },
+    {
+      "id": "orders.py:7:line_total",
+      "name": "line_total",
+      "path": "orders.py",
+      "line": 7,
+      "endLine": 8,
+      "source": "def line_total(product, quantity):\n    return discount(unit_price(product) * quantity, quantity)",
+      "change": "modified"
+    },
+    {
+      "id": "orders.py:1:unit_price",
+      "name": "unit_price",
+      "path": "orders.py",
+      "line": 1,
+      "endLine": 4,
+      "source": "def unit_price(product):\n    if product == \"book\":\n        return 12\n    return 5"
+    },
+    {
+      "id": "orders.py:18:discount",
+      "name": "discount",
+      "path": "orders.py",
+      "line": 18,
+      "endLine": 21,
+      "source": "def discount(total, quantity):\n    if quantity >= 10:\n        return total * 0.8\n    return total",
+      "change": "added"
+    },
+    {
+      "id": "test_orders.py:9:test_bulk",
+      "name": "test_bulk",
+      "path": "test_orders.py",
+      "line": 9,
+      "endLine": 11,
+      "source": "@pytest.mark.parametrize(\"quantity,expected\", [(10, 96), (20, 192)])\ndef test_bulk(quantity, expected):\n    assert order_total([(\"book\", quantity)]) == expected",
+      "change": "added"
+    }
+  ],
+  "tests": [
+    {
+      "nodeid": "test_orders.py::test_order",
+      "outcome": "passed",
+      "calls": [
+        {
+          "id": 1,
+          "functionId": "test_orders.py:5:test_order",
+          "parentId": null,
+          "callLine": null,
+          "thread": 1,
+          "entryOrder": 1,
+          "exitOrder": 16,
+          "kind": "call",
+          "resumeFrom": null
+        },
+        {
+          "id": 2,
+          "functionId": "orders.py:11:order_total",
+          "parentId": 1,
+          "callLine": 6,
+          "thread": 1,
+          "entryOrder": 2,
+          "exitOrder": 15,
+          "kind": "call",
+          "resumeFrom": null
+        },
+        {
+          "id": 3,
+          "functionId": "orders.py:7:line_total",
+          "parentId": 2,
+          "callLine": 14,
+          "thread": 1,
+          "entryOrder": 3,
+          "exitOrder": 8,
+          "kind": "call",
+          "resumeFrom": null
+        },
+        {
+          "id": 4,
+          "functionId": "orders.py:1:unit_price",
+          "parentId": 3,
+          "callLine": 8,
+          "thread": 1,
+          "entryOrder": 4,
+          "exitOrder": 5,
+          "kind": "call",
+          "resumeFrom": null
+        },
+        {
+          "id": 5,
+          "functionId": "orders.py:18:discount",
+          "parentId": 3,
+          "callLine": 8,
+          "thread": 1,
+          "entryOrder": 6,
+          "exitOrder": 7,
+          "kind": "call",
+          "resumeFrom": null
+        },
+        {
+          "id": 6,
+          "functionId": "orders.py:7:line_total",
+          "parentId": 2,
+          "callLine": 14,
+          "thread": 1,
+          "entryOrder": 9,
+          "exitOrder": 14,
+          "kind": "call",
+          "resumeFrom": null
+        },
+        {
+          "id": 7,
+          "functionId": "orders.py:1:unit_price",
+          "parentId": 6,
+          "callLine": 8,
+          "thread": 1,
+          "entryOrder": 10,
+          "exitOrder": 11,
+          "kind": "call",
+          "resumeFrom": null
+        },
+        {
+          "id": 8,
+          "functionId": "orders.py:18:discount",
+          "parentId": 6,
+          "callLine": 8,
+          "thread": 1,
+          "entryOrder": 12,
+          "exitOrder": 13,
+          "kind": "call",
+          "resumeFrom": null
+        }
+      ],
+      "truncated": false
+    },
+    {
+      "nodeid": "test_orders.py::test_bulk[10-96]",
+      "outcome": "passed",
+      "calls": [
+        {
+          "id": 1,
+          "functionId": "test_orders.py:9:test_bulk",
+          "parentId": null,
+          "callLine": null,
+          "thread": 1,
+          "entryOrder": 1,
+          "exitOrder": 10,
+          "kind": "call",
+          "resumeFrom": null
+        },
+        {
+          "id": 2,
+          "functionId": "orders.py:11:order_total",
+          "parentId": 1,
+          "callLine": 11,
+          "thread": 1,
+          "entryOrder": 2,
+          "exitOrder": 9,
+          "kind": "call",
+          "resumeFrom": null
+        },
+        {
+          "id": 3,
+          "functionId": "orders.py:7:line_total",
+          "parentId": 2,
+          "callLine": 14,
+          "thread": 1,
+          "entryOrder": 3,
+          "exitOrder": 8,
+          "kind": "call",
+          "resumeFrom": null
+        },
+        {
+          "id": 4,
+          "functionId": "orders.py:1:unit_price",
+          "parentId": 3,
+          "callLine": 8,
+          "thread": 1,
+          "entryOrder": 4,
+          "exitOrder": 5,
+          "kind": "call",
+          "resumeFrom": null
+        },
+        {
+          "id": 5,
+          "functionId": "orders.py:18:discount",
+          "parentId": 3,
+          "callLine": 8,
+          "thread": 1,
+          "entryOrder": 6,
+          "exitOrder": 7,
+          "kind": "call",
+          "resumeFrom": null
+        }
+      ],
+      "truncated": false
+    },
+    {
+      "nodeid": "test_orders.py::test_bulk[20-192]",
+      "outcome": "passed",
+      "calls": [
+        {
+          "id": 1,
+          "functionId": "test_orders.py:9:test_bulk",
+          "parentId": null,
+          "callLine": null,
+          "thread": 1,
+          "entryOrder": 1,
+          "exitOrder": 10,
+          "kind": "call",
+          "resumeFrom": null
+        },
+        {
+          "id": 2,
+          "functionId": "orders.py:11:order_total",
+          "parentId": 1,
+          "callLine": 11,
+          "thread": 1,
+          "entryOrder": 2,
+          "exitOrder": 9,
+          "kind": "call",
+          "resumeFrom": null
+        },
+        {
+          "id": 3,
+          "functionId": "orders.py:7:line_total",
+          "parentId": 2,
+          "callLine": 14,
+          "thread": 1,
+          "entryOrder": 3,
+          "exitOrder": 8,
+          "kind": "call",
+          "resumeFrom": null
+        },
+        {
+          "id": 4,
+          "functionId": "orders.py:1:unit_price",
+          "parentId": 3,
+          "callLine": 8,
+          "thread": 1,
+          "entryOrder": 4,
+          "exitOrder": 5,
+          "kind": "call",
+          "resumeFrom": null
+        },
+        {
+          "id": 5,
+          "functionId": "orders.py:18:discount",
+          "parentId": 3,
+          "callLine": 8,
+          "thread": 1,
+          "entryOrder": 6,
+          "exitOrder": 7,
+          "kind": "call",
+          "resumeFrom": null
+        }
+      ],
+      "truncated": false
+    }
+  ],
+  "exitCode": 0
+}

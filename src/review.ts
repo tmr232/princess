@@ -57,7 +57,7 @@ const outlineSchema = z.array(
   }),
 );
 
-async function analyze(source: string): Promise<SymbolInfo[]> {
+export async function analyze(source: string): Promise<SymbolInfo[]> {
   // Run outside the reviewed repo: its config must not affect analysis or load tools.
   const output = await run(
     [

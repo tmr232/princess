@@ -8,9 +8,18 @@
   } from "./model";
   import { graph } from "./graphs";
   import GraphPane from "./GraphPane.svelte";
+  import ReviewTree from "./ReviewTree.svelte";
   import CodeDiff from "./CodeDiff.svelte";
+  import type { CoverageState } from "./coverage";
+  import CoverageExplorer from "./CoverageExplorer.svelte";
+  import TraceView from "./TraceView.svelte";
+  import type { TraceState } from "./trace";
+  import CoveragePanel from "./CoveragePanel.svelte";
   import FunctionGraphs from "./FunctionGraphs.svelte";
   type View = "graph" | "code" | "functions" | "combined";
+  let tab: "review" | "coverage" = "review";
+  let traceState: TraceState | null = null;
+  let coverageState: CoverageState | null = null;
   let view: View = "graph";
   let singleView: Exclude<View, "functions"> = "graph";
   let functionsOpened = false;
@@ -94,6 +103,13 @@
     }
     if (selected) void select(fileId, filePath, selected);
   }
+  let coverageMode: "run" | "explore" | "trace" = "run";
+  let coverageSelection: { fileId: string; changeId: string } | null = null;
+  function inspectCoverage(id: string, changeId: string) {
+    tab = "coverage";
+    coverageMode = "explore";
+    coverageSelection = { fileId: id, changeId };
+  }
   function focusFunction(id: string, path: string, change: Change) {
     returnToFunctions = true;
     view = "combined";
@@ -160,13 +176,17 @@
       >STRUCTURAL CODE REVIEW</span
     >
   </div>
+  <nav aria-label="Main navigation">
+    <button class:active={tab === "review"} aria-pressed={tab === "review"} onclick={() => tab = "review"}>Review</button>
+    <button class:active={tab === "coverage"} aria-pressed={tab === "coverage"} onclick={() => tab = "coverage"}>Tests &amp; coverage{(coverageState?.status === "running" || traceState?.status === "running") ? " · Running…" : ""}</button>
+  </nav>
   <span class="revisions"
     >{review
       ? `${review.base.slice(0, 8)} → ${review.head.slice(0, 8)}`
       : "Loading review…"}</span
   >
 </header>
-<main>
+<main hidden={tab !== "review"}>
   <aside>
     <div class="section-title">
       CHANGED STRUCTURE <span
@@ -174,73 +194,9 @@
         {review?.files.length === 1 ? "file" : "files"}</span
       >
     </div>
-    {#each review?.files ?? [] as file}
-      <section class="file">
-        <h2
-          title={file.oldPath !== file.path
-            ? `Renamed from ${file.oldPath}`
-            : file.path}
-        >
-          <span>◇</span>
-          {#if file.supported}
-            <button
-              class="file-select"
-              class:active={selected?.kind === "module" && fileId === file.id}
-              aria-label={`View module ${file.path}`}
-              onclick={() =>
-                select(file.id, file.path, {
-                  id: "$module",
-                  name: file.path,
-                  kind: "module",
-                  parent: null,
-                  status:
-                    file.status === "A"
-                      ? "added"
-                      : file.status === "D"
-                        ? "removed"
-                        : "modified",
-                  before: null,
-                  after: null,
-                })}>{file.path}</button
-            >
-          {:else}{file.path}{/if}
-          <small>{file.status.startsWith("R") ? "renamed" : file.status}</small>
-        </h2>
-        {#if !file.supported}<p class="muted">
-            Non-Python file · file change only
-          </p>{/if}
-        {#each file.changes as change}
-          <button
-            class:active={selected?.id === change.id && fileId === file.id}
-            style:padding-left={`${14 + (change.parent?.split(".").length ?? 0) * 16}px`}
-            onclick={() => select(file.id, file.path, change)}
-          >
-            <span class="kind"
-              >{change.kind === "class"
-                ? "C"
-                : change.kind === "function"
-                  ? "ƒ"
-                  : "·"}</span
-            ><span class="name">{change.name}</span><span
-              class={`status ${change.status}`}
-              >{change.status === "added"
-                ? "+"
-                : change.status === "removed"
-                  ? "−"
-                  : "~"}</span
-            >
-          </button>
-        {/each}
-        {#if file.supported && !file.changes.length}<p class="muted">
-            No definition changes
-          </p>{/if}
-      </section>
-    {/each}
-    {#if review && !review.files.length}<p class="muted">
-        No changes between these commits.
-      </p>{/if}
+    {#if review}<ReviewTree {review} {fileId} selectedId={selected?.id ?? ""} onselect={select} />{/if}
     <footer>
-      + added &nbsp; − removed &nbsp; ~ modified<br />Summary contains
+      A added &nbsp; D removed &nbsp; M modified &nbsp; R renamed<br />Summary contains
       structure, not code.
     </footer>
   </aside>
@@ -489,6 +445,20 @@
     </div>
   </article>
 </main>
+<div class="coverage-page" hidden={tab !== "coverage"}>
+  <div class="coverage-tabs" role="group" aria-label="Coverage workspace">
+    <button class:active={coverageMode === "run"} aria-pressed={coverageMode === "run"} onclick={() => coverageMode = "run"}>Run tests</button>
+    <button class:active={coverageMode === "explore"} aria-pressed={coverageMode === "explore"} onclick={() => coverageMode = "explore"}>Explore coverage</button>
+    <button class:active={coverageMode === "trace"} aria-pressed={coverageMode === "trace"} onclick={() => coverageMode = "trace"}>Function traces</button>
+  </div>
+  <div class="coverage-run" hidden={coverageMode !== "run"}>
+    <h1>Run tests with coverage</h1>
+    <p>Choose changed tests, then explore their associations with changed functions.</p>
+    {#if review}<CoveragePanel {review} {fileId} selectedId={selected?.id ?? ""} bind:state={coverageState} oninspect={inspectCoverage} />{/if}
+  </div>
+  {#if review}<div class="coverage-explore" hidden={coverageMode !== "trace"}><TraceView {review} bind:state={traceState} /></div>{/if}
+  {#if review}<div class="coverage-explore" hidden={coverageMode !== "explore"}><CoverageExplorer {review} state={coverageState} initialSelection={coverageSelection} /></div>{/if}
+</div>
 
 <style>
   :global(*) {
@@ -513,6 +483,17 @@
     justify-content: space-between;
     padding: 0 28px;
   }
+  main[hidden], .coverage-page[hidden], .coverage-run[hidden], .coverage-explore[hidden] { display: none; }
+  .coverage-page { display: flex; flex-direction: column; height: calc(100vh - 72px); }
+  .coverage-tabs { display: flex; gap: 8px; padding: 12px 28px; border-bottom: 1px solid #dce3eb; background: white; }
+  .coverage-tabs button { width: auto; padding: 8px 16px; border-radius: 5px; font-size: 13px; }
+  .coverage-tabs button.active { box-shadow: none; }
+  .coverage-run { padding: 28px; overflow: auto; }
+  .coverage-run > p { color: #63758a; font-size: 13px; }
+  .coverage-explore { flex: 1; min-height: 0; }
+  header nav { display: flex; gap: 8px; }
+  header nav button { width: auto; color: #c3cddb; border-radius: 6px; padding: 10px 16px; font-size: 13px; }
+  header nav button.active, header nav button:hover { color: white; background: #2c405a; box-shadow: none; }
   header strong {
     font-size: 24px;
     letter-spacing: -0.5px;
@@ -536,7 +517,8 @@
   aside {
     background: #fff;
     border-right: 1px solid #dce3eb;
-    overflow: auto;
+    overflow: hidden;
+    min-height: 0;
     display: flex;
     flex-direction: column;
   }
@@ -551,32 +533,6 @@
     float: right;
     letter-spacing: 0;
     font-weight: 400;
-  }
-  .file {
-    padding-bottom: 16px;
-  }
-  .file h2 {
-    font-size: 13px;
-    font-weight: 650;
-    margin: 0;
-    padding: 10px 14px;
-    overflow-wrap: anywhere;
-    background: #f7f9fc;
-  }
-  .file h2 span {
-    color: #73869b;
-  }
-  .file-select {
-    display: inline;
-    width: auto;
-    padding: 2px 4px;
-    font-weight: inherit;
-    overflow-wrap: anywhere;
-  }
-  small {
-    font-size: 10px;
-    color: #778698;
-    margin-left: 5px;
   }
   button {
     width: 100%;
@@ -598,29 +554,6 @@
     color: #3455aa;
     box-shadow: inset 3px 0 #5374d6;
   }
-  .kind {
-    color: #798ba3;
-    width: 15px;
-    font-family: monospace;
-  }
-  .name {
-    overflow-wrap: anywhere;
-    flex: 1;
-    font-size: 13px;
-  }
-  .status {
-    font-family: monospace;
-    font-size: 16px;
-  }
-  .added {
-    color: #258459;
-  }
-  .removed {
-    color: #c2525a;
-  }
-  .modified {
-    color: #b77e24;
-  }
   footer {
     margin-top: auto;
     padding: 20px;
@@ -628,11 +561,6 @@
     color: #8b98a8;
     line-height: 2;
     border-top: 1px solid #edf0f4;
-  }
-  .muted {
-    font-size: 12px;
-    color: #8b98a8;
-    padding: 0 18px;
   }
   article {
     padding: 26px;

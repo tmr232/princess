@@ -14,10 +14,12 @@
     "@hpcc-js/wasm-graphviz": "^1.7.0",
     "@panzoom/panzoom": "^4.6.0",
     "@pierre/diffs": "^1.5.2",
+    "@pierre/trees": "1.0.0-beta.6",
     "commander": "^14.0.0",
     "graphology": "^0.26.0",
     "graphology-operators": "^1.6.0",
     "graphology-traversal": "^0.3.1",
+    "shell-quote": "^1.12.0",
     "ts-graphviz": "^2.1.6",
     "web-tree-sitter": "0.25.3",
     "zod": "^4.0.0"
@@ -25,6 +27,7 @@
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^5.0.3",
     "@types/bun": "latest",
+    "@types/shell-quote": "^1.7.5",
     "svelte": "^5.0.0",
     "svelte-check": "^4.0.0",
     "typescript": "^5.8.3",

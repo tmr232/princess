@@ -8,5 +8,6 @@ export const browserFiles = new Map(
 );
 export const parserWasm = resolve(import.meta.dir, "../node_modules/web-tree-sitter/tree-sitter.wasm");
 export const pythonWasm = resolve(import.meta.dir, "../vendor/explorer/parsers/tree-sitter-python.wasm");
+export const tracePlugin = resolve(import.meta.dir, "python/princess_trace.py");
 const platform = `${process.platform}-${process.arch}${process.platform === "linux" ? "-gnu" : process.platform === "win32" ? "-msvc" : ""}`;
 export const astGrep = require.resolve(`@ast-grep/cli-${platform}/${process.platform === "win32" ? "ast-grep.exe" : "ast-grep"}`);

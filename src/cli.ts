@@ -1,15 +1,23 @@
+import { resolveComparison } from "./comparison";
+import { TraceRunner } from "./trace";
+import { CoverageRunner } from "./coverage";
 import { Command } from "commander";
 import { createReview, createInterface } from "./review";
 import { browserFiles } from "./assets";
+import { parsePytestCommand, pytestInvocation } from "./pytestRuntime";
+import { resolve } from "node:path";
 
 const options = new Command()
   .name("princess")
   .description(
-    "Review two Git commits with structural summaries and function graphs",
+    "Review branch changes from the default-branch merge-base, or compare two commits",
   )
   .requiredOption("--repo <path>")
-  .requiredOption("--base <revision>")
+  .option("--base <revision>", "Compare directly against this revision")
+  .option("--merge-base <revision>", "Use the merge-base with this branch/revision (default: repository default branch)")
   .option("--head <revision>", "Head revision", "HEAD")
+  .option("--pytest-command <command>", "Base pytest executable and arguments (no shell evaluation)", parsePytestCommand, ["uv", "run", "pytest"])
+  .option("--pytest-directory <path>", "Working directory relative to the reviewed repository snapshot", ".")
   .option(
     "--port <number>",
     "Local HTTP port (0 chooses an available port)",
@@ -24,16 +32,36 @@ try {
     throw new Error("Invalid port");
   if (!browserFiles.has("/index.html"))
     throw new Error("Build the browser UI first: bun run build");
-  const { review, sources } = await createReview(
-    options.repo,
-    options.base,
-    options.head,
-  );
+  const comparison = await resolveComparison(options.repo, options);
+  const pytest = { command: options.pytestCommand, directory: options.pytestDirectory };
+  pytestInvocation(resolve(options.repo), [], pytest);
+  const { review, sources } = await createReview(options.repo, comparison.base, comparison.head);
+  const coverage = new CoverageRunner(review, sources, pytest);
+  const trace = new TraceRunner(review, sources, pytest);
   const server = Bun.serve({
     hostname: options.host,
     port,
     async fetch(request) {
       const url = new URL(request.url);
+      if (url.pathname === "/api/coverage" || url.pathname === "/api/trace") {
+        const runner = url.pathname === "/api/trace" ? trace : coverage;
+        if (request.method === "GET") return Response.json(runner.state);
+        if (request.method === "POST") {
+          if (request.headers.get("origin") !== url.origin)
+            return new Response("Same-origin request required", { status: 403 });
+          try {
+            const body = await request.json();
+            if (!Array.isArray(body.tests) || body.tests.some((id: unknown) => typeof id !== "string"))
+              return new Response("Expected test node IDs", { status: 400 });
+            if (coverage.state.status === "running" || trace.state.status === "running")
+              return Response.json({ error: "A test run is already in progress" }, { status: 409 });
+            runner.start(body.tests);
+            return Response.json(runner.state, { status: 202 });
+          } catch (error) {
+            return Response.json({ error: String(error) }, { status: runner.state.status === "running" ? 409 : 400 });
+          }
+        }
+      }
       if (request.method !== "GET")
         return new Response("Method not allowed", { status: 405 });
       if (url.pathname === "/api/review") return Response.json(review);
@@ -91,7 +119,7 @@ try {
     },
   });
   console.log(
-    `Princess: ${server.url}\n${review.files.length} changed files · ${review.base.slice(0, 8)} → ${review.head.slice(0, 8)}`,
+    `Princess: ${server.url}\n${review.files.length} changed files · ${review.base.slice(0, 8)} → ${review.head.slice(0, 8)}${comparison.target ? `\nMerge-base with ${comparison.target.replace(/^refs\/(remotes|heads)\//, "")} · target ${comparison.targetHead!.slice(0, 8)}` : ""}`,
   );
 } catch (error) {
   console.error(error instanceof Error ? error.message : error);
