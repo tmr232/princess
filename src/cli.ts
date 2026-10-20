@@ -1,6 +1,6 @@
 import { Command } from "commander";
-import { resolve, sep } from "node:path";
 import { createReview, createInterface } from "./review";
+import { browserFiles } from "./assets";
 
 const options = new Command()
   .name("princess")
@@ -22,8 +22,7 @@ try {
   const port = Number(options.port);
   if (!Number.isInteger(port) || port < 0 || port > 65535)
     throw new Error("Invalid port");
-  const root = resolve(import.meta.dir, "../dist");
-  if (!(await Bun.file(resolve(root, "index.html")).exists()))
+  if (!browserFiles.has("/index.html"))
     throw new Error("Build the browser UI first: bun run build");
   const { review, sources } = await createReview(
     options.repo,
@@ -83,12 +82,8 @@ try {
           afterLines,
         });
       }
-      const path = resolve(
-        root,
-        `.${decodeURIComponent(url.pathname === "/" ? "/index.html" : url.pathname)}`,
-      );
-      if (!path.startsWith(root + sep))
-        return new Response("Forbidden", { status: 403 });
+      const path = browserFiles.get(decodeURIComponent(url.pathname === "/" ? "/index.html" : url.pathname));
+      if (!path) return new Response("Not found", { status: 404 });
       const file = Bun.file(path);
       return (await file.exists())
         ? new Response(file)

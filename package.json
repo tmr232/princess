@@ -5,6 +5,7 @@
   "scripts": {
     "review": "bun src/cli.ts",
     "build": "vite build",
+    "build:binary": "bun run build && bun scripts/compile.ts",
     "check": "svelte-check --tsconfig tsconfig.json",
     "test": "bun test"
   },
