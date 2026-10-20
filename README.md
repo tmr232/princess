@@ -22,7 +22,9 @@ bun scripts/smoke-binary.ts build/princess # build/princess.exe on Windows
 
 ### Publishing a release
 
-Move the release's entries in `changelog.md` from **Unreleased** into a section headed `## [X.Y.Z] - YYYY-MM-DD`, then commit it and push a matching `vX.Y.Z` tag. The **Release** workflow validates that the matching section exists and is nonempty, runs the six-platform build and smoke tests, and publishes a GitHub Release with those notes and archives. Tags such as `v1.2.0-rc.1` create prereleases. A missing or empty changelog section blocks publication.
+Releases use **CalVer**: `vYYYY.MM.DD`, using the Jerusalem calendar date (for example, `v2026.10.20`). Additional releases on the same day append `.1`, `.2`, and so on.
+
+Move the release's entries in `changelog.md` from **Unreleased** into a section headed `## [YYYY.MM.DD] - YYYY-MM-DD` (including the `.N` suffix when used), then commit it and push a matching tag. The **Release** workflow validates that the matching section exists and is nonempty, runs the six-platform build and smoke tests, and publishes a GitHub Release with those notes and archives. Tags such as `v2026.10.20-rc.1` create prereleases. A missing or empty changelog section blocks publication.
 
 ## Run
 

@@ -1,7 +1,7 @@
-// Release headings use `## [1.2.3] - YYYY-MM-DD`; tags use `v1.2.3`.
+// CalVer tags use vYYYY.MM.DD, with optional .N for another release that day.
 export function releaseNotes(changelog: string, tag: string): string {
   const version = tag.replace(/^v/, "");
-  if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(version)) {
+  if (!/^\d{4}\.\d{2}\.\d{2}(?:\.[1-9]\d*)?(?:-[0-9A-Za-z.-]+)?$/.test(version)) {
     throw new Error(`Invalid release tag: ${tag}`);
   }
   const lines = changelog.split(/\r?\n/);
@@ -19,6 +19,6 @@ export function releaseNotes(changelog: string, tag: string): string {
 
 if (import.meta.main) {
   const tag = Bun.argv[2];
-  if (!tag) throw new Error("Usage: bun scripts/release-notes.ts v1.2.3");
+  if (!tag) throw new Error("Usage: bun scripts/release-notes.ts vYYYY.MM.DD[.N]");
   console.write(releaseNotes(await Bun.file("changelog.md").text(), tag));
 }
