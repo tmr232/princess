@@ -2,6 +2,28 @@
 
 Python-first code review visualization: an ast-grep structural change tree and before/after function control-flow graphs from [Function Graph Overview](https://github.com/tmr232/function-graph-overview).
 
+## Standalone binaries
+
+The **Build binaries** GitHub Actions workflow builds Linux (glibc), macOS, and Windows executables for x64 and ARM64. It runs on pull requests, pushes to `main`, and manual dispatch. Download the archive for your platform from the workflow run's **Artifacts** section and extract it (using `tar -xzf princess-<platform>.tar.gz`). Tagged releases also publish these archives to GitHub Releases.
+
+```sh
+./princess --repo /path/to/repository --base main --head HEAD
+```
+
+On Windows, use `princess.exe`. Git must be installed and available on `PATH`; Bun, Node.js, and ast-grep do not need to be installed. The executable embeds the browser UI, WASM parsers, and native ast-grep. It extracts ast-grep to the system temporary directory at runtime, so that directory must allow executable files. These are unsigned builds.
+
+To build for your current platform locally with Bun 1.3.10:
+
+```sh
+bun install --frozen-lockfile
+bun run build:binary
+bun scripts/smoke-binary.ts build/princess # build/princess.exe on Windows
+```
+
+### Publishing a release
+
+Move the release's entries in `changelog.md` from **Unreleased** into a section headed `## [X.Y.Z] - YYYY-MM-DD`, then commit it and push a matching `vX.Y.Z` tag. The **Release** workflow validates that the matching section exists and is nonempty, runs the six-platform build and smoke tests, and publishes a GitHub Release with those notes and archives. Tags such as `v1.2.0-rc.1` create prereleases. A missing or empty changelog section blocks publication.
+
 ## Run
 
 Requires Bun and Git. ast-grep 0.50.0 is installed as a local dependency.
