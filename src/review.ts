@@ -1,8 +1,25 @@
 import { resolve } from "node:path";
+import { chmodSync, mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { Parser, Language, type Node } from "web-tree-sitter";
 import { z } from "zod";
 import type { Review, SymbolInfo, Change } from "./model";
 import { projectInterface, type InterfaceOptions } from "./interface";
+import { embedded, astGrep, parserWasm, pythonWasm } from "./assets";
+
+let executablePromise: Promise<string> | undefined;
+function executable() {
+  return (executablePromise ??= (async () => {
+    if (!embedded) return astGrep;
+    // Embedded files are virtual; subprocesses need a real executable on disk.
+    const directory = mkdtempSync(resolve(tmpdir(), "princess-"));
+    process.on("exit", () => rmSync(directory, { recursive: true, force: true }));
+    const path = resolve(directory, process.platform === "win32" ? "ast-grep.exe" : "ast-grep");
+    await Bun.write(path, Bun.file(astGrep));
+    chmodSync(path, 0o700);
+    return path;
+  })());
+}
 
 async function run(args: string[], cwd: string, stdin?: string) {
   const proc = Bun.spawn(args, {
@@ -22,16 +39,9 @@ async function run(args: string[], cwd: string, stdin?: string) {
 let parserPromise: Promise<Parser> | undefined;
 function parser() {
   return (parserPromise ??= (async () => {
-    await Parser.init();
+    await Parser.init({ wasmBinary: await Bun.file(parserWasm).arrayBuffer() });
     const p = new Parser();
-    p.setLanguage(
-      await Language.load(
-        resolve(
-          import.meta.dir,
-          "../vendor/explorer/parsers/tree-sitter-python.wasm",
-        ),
-      ),
-    );
+    p.setLanguage(await Language.load(new Uint8Array(await Bun.file(pythonWasm).arrayBuffer())));
     return p;
   })());
 }
@@ -51,7 +61,7 @@ export async function analyze(source: string): Promise<SymbolInfo[]> {
   // Run outside the reviewed repo: its config must not affect analysis or load tools.
   const output = await run(
     [
-      resolve(import.meta.dir, "../node_modules/.bin/ast-grep"),
+      await executable(),
       "outline",
       "--stdin",
       "--lang",
@@ -64,7 +74,7 @@ export async function analyze(source: string): Promise<SymbolInfo[]> {
       "expanded",
       "--json=compact",
     ],
-    import.meta.dir,
+    tmpdir(),
     source,
   );
   const outline = outlineSchema.parse(JSON.parse(output));
