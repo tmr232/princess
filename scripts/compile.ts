@@ -1,5 +1,5 @@
 import { resolve } from "node:path";
-import { browserFiles as assets, parserWasm, pythonWasm, astGrep } from "../src/assets";
+import { browserFiles as assets, parserWasm, pythonWasm, astGrep, tracePlugin } from "../src/assets";
 
 // Build on the target OS/architecture so ast-grep matches the Bun executable.
 const root = resolve(import.meta.dir, "..");
@@ -8,6 +8,7 @@ const files = [
   parserWasm,
   pythonWasm,
   astGrep,
+  tracePlugin,
   ...assets.values(),
 ];
 const result = await Bun.build({
@@ -23,7 +24,8 @@ const result = await Bun.build({
           export const parserWasm = file0;
           export const pythonWasm = file1;
           export const astGrep = file2;
-          export const browserFiles = new Map([${[...assets.keys()].map((key, i) => `[${JSON.stringify(key)}, file${i + 3}]`).join(",")}]);
+          export const tracePlugin = file3;
+          export const browserFiles = new Map([${[...assets.keys()].map((key, i) => `[${JSON.stringify(key)}, file${i + 4}]`).join(",")}]);
         `,
       }));
     },

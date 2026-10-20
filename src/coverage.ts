@@ -6,6 +6,7 @@ export { testTargets } from "./testTargets";
 import { analyze } from "./review";
 import type { SymbolInfo } from "./model";
 import type { Review } from "./model";
+import { snapshot } from "./pytestRuntime";
 
 export type TestTarget = { nodeid: string; fileId: string; changeId: string };
 export type FunctionCoverage = {
@@ -66,17 +67,13 @@ export class CoverageRunner {
     const state = this.state;
     try {
       folder = await mkdtemp(join(tmpdir(), "princess-coverage-"));
-      const snapshot = join(folder, "repo");
-      await this.run(["mkdir", snapshot], folder);
-      const archive = Bun.spawn(["git", "archive", "--format=tar", this.review.head], { cwd: this.review.repo, stdout: "pipe", stderr: "pipe" });
-      const extraction = Bun.spawn(["tar", "-xf", "-", "-C", snapshot], { stdin: archive.stdout, stdout: "pipe", stderr: "pipe" });
-      const errors = await Promise.all([new Response(archive.stderr).text(), new Response(extraction.stderr).text()]);
-      if ((await archive.exited) || (await extraction.exited)) throw new Error(errors.join("\n"));
+      const cwd = join(folder, "repo");
+      await snapshot(this.review.repo, this.review.head, cwd);
       const rc = join(folder, "coverage.ini"), data = join(folder, ".coverage"), json = join(folder, "coverage.json");
       await writeFile(rc, "[run]\nrelative_files = True\n[json]\nshow_contexts = True\n");
       const env = { ...process.env, COVERAGE_FILE: data, UV_CACHE_DIR: process.env.UV_CACHE_DIR ?? join(tmpdir(), "princess-uv-cache") };
-      state.exitCode = await this.run(["uv", "run", "pytest", ...ids, "--cov=.", "--cov-context=test", "--cov-report=", `--cov-config=${rc}`], snapshot, env, true);
-      await this.run(["uv", "run", "python", "-m", "coverage", "json", "--show-contexts", `--rcfile=${rc}`, "-o", json], snapshot, env);
+      state.exitCode = await this.run(["uv", "run", "pytest", ...ids, "--cov=.", "--cov-context=test", "--cov-report=", `--cov-config=${rc}`], cwd, env, true);
+      await this.run(["uv", "run", "python", "-m", "coverage", "json", "--show-contexts", `--rcfile=${rc}`, "-o", json], cwd, env);
       const inventories = new Map<string, SymbolInfo[]>();
       for (const [id, source] of this.sources) if (source.after) inventories.set(id, await analyze(source.after));
       state.report = await Bun.file(json).json();

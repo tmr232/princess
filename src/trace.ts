@@ -1,4 +1,4 @@
-import { mkdtemp, rm, copyFile, writeFile } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, delimiter } from "node:path";
 import { z } from "zod";
@@ -6,6 +6,7 @@ import type { Review } from "./model";
 import type { TestTarget } from "./coverage";
 import { testTargets } from "./testTargets";
 import { snapshot, pytestCommand } from "./pytestRuntime";
+import { tracePlugin } from "./assets";
 
 const callSchema = z.object({ id: z.number().int().positive(), functionId: z.string(), parentId: z.number().nullable(), callLine: z.number().nullable(), thread: z.number(), entryOrder: z.number(), exitOrder: z.number().optional(), kind: z.enum(["call", "resume"]), resumeFrom: z.number().nullable(), suspended: z.boolean().optional() });
 const functionSchema = z.object({ id: z.string(), name: z.string(), path: z.string(), line: z.number(), endLine: z.number(), source: z.string() });
@@ -34,7 +35,7 @@ export class TraceRunner {
       folder = await mkdtemp(join(tmpdir(), "princess-trace-"));
       const cwd = join(folder, "repo");
       await snapshot(this.review.repo, this.review.head, cwd);
-      await copyFile(join(import.meta.dir, "python/princess_trace.py"), join(folder, "princess_trace.py"));
+      await Bun.write(join(folder, "princess_trace.py"), Bun.file(tracePlugin));
       const listing = Bun.spawnSync(["git", "ls-tree", "-r", "--name-only", "-z", this.review.head], { cwd: this.review.repo });
       if (listing.exitCode) throw new Error("Unable to list snapshot files");
       const files = listing.stdout.toString().split("\0").filter(path => path.endsWith(".py"));

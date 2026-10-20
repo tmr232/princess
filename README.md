@@ -10,7 +10,7 @@ The **Build binaries** GitHub Actions workflow builds Linux (glibc), macOS, and 
 ./princess --repo /path/to/repository --base main --head HEAD
 ```
 
-On Windows, use `princess.exe`. Git must be installed and available on `PATH`; Bun, Node.js, and ast-grep do not need to be installed. The executable embeds the browser UI, WASM parsers, and native ast-grep. It extracts ast-grep to the system temporary directory at runtime, so that directory must allow executable files. These are unsigned builds.
+On Windows, use `princess.exe`. Git must be installed and available on `PATH`; Bun, Node.js, and ast-grep do not need to be installed. The executable embeds the browser UI, WASM parsers, native ast-grep, and the Python tracing plugin. It extracts ast-grep to the system temporary directory at runtime, so that directory must allow executable files. On-demand coverage and callgraphs additionally require uv and the reviewed project's Python test dependencies, as described below. These are unsigned builds.
 
 To build for your current platform locally with Bun 1.3.10:
 
