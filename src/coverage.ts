@@ -1,12 +1,12 @@
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, relative, resolve, sep } from "node:path";
 import { testTargets } from "./testTargets";
 export { testTargets } from "./testTargets";
 import { analyze } from "./review";
 import type { SymbolInfo } from "./model";
 import type { Review } from "./model";
-import { snapshot } from "./pytestRuntime";
+import { snapshot, pytestCommand, pytestInvocation, defaultPytestOptions, type PytestOptions } from "./pytestRuntime";
 
 export type TestTarget = { nodeid: string; fileId: string; changeId: string };
 export type FunctionCoverage = {
@@ -51,7 +51,7 @@ export function mapCoverage(review: Review, sources: Map<string, { after: string
 
 export class CoverageRunner {
   state: CoverageState;
-  constructor(private review: Review, private sources: Map<string, { after: string | null }>) {
+  constructor(private review: Review, private sources: Map<string, { after: string | null }>, private pytest: PytestOptions = defaultPytestOptions) {
     this.state = { status: "idle", targets: testTargets(review), selected: [], command: "", output: "", functions: [] };
   }
   start(selected: string[]) {
@@ -59,7 +59,7 @@ export class CoverageRunner {
     if (!selected.length || selected.some(id => !this.state.targets.some(t => t.nodeid === id)))
       throw new Error("Select changed pytest tests from this review");
     const ids = [...new Set(selected)];
-    this.state = { ...this.state, status: "running", selected: ids, command: `uv run pytest ${ids.map(id => JSON.stringify(id)).join(" ")} --cov=. --cov-context=test --cov-report=`, output: "", error: undefined, exitCode: undefined, report: undefined, functions: [] };
+    this.state = { ...this.state, status: "running", selected: ids, command: "", output: "", error: undefined, exitCode: undefined, report: undefined, functions: [] };
     void this.execute(ids);
   }
   private async execute(ids: string[]) {
@@ -67,37 +67,26 @@ export class CoverageRunner {
     const state = this.state;
     try {
       folder = await mkdtemp(join(tmpdir(), "princess-coverage-"));
-      const cwd = join(folder, "repo");
-      await snapshot(this.review.repo, this.review.head, cwd);
+      const root = join(folder, "repo");
+      await snapshot(this.review.repo, this.review.head, root);
+      const { cwd, args } = pytestInvocation(root, ids, this.pytest);
       const rc = join(folder, "coverage.ini"), data = join(folder, ".coverage"), json = join(folder, "coverage.json");
       await writeFile(rc, "[run]\nrelative_files = True\n[json]\nshow_contexts = True\n");
       const env = { ...process.env, COVERAGE_FILE: data, UV_CACHE_DIR: process.env.UV_CACHE_DIR ?? join(tmpdir(), "princess-uv-cache") };
-      state.exitCode = await this.run(["uv", "run", "pytest", ...ids, "--cov=.", "--cov-context=test", "--cov-report=", `--cov-config=${rc}`], cwd, env, true);
-      await this.run(["uv", "run", "python", "-m", "coverage", "json", "--show-contexts", `--rcfile=${rc}`, "-o", json], cwd, env);
+      args.push(`--cov=${root}`, "--cov-context=test", `--cov-report=json:${json}`, `--cov-config=${rc}`);
+      state.command = args.map(arg => JSON.stringify(arg)).join(" ");
+      state.exitCode = await pytestCommand(args, cwd, env, text => { state.output = (state.output + text).slice(-100_000); });
       const inventories = new Map<string, SymbolInfo[]>();
       for (const [id, source] of this.sources) if (source.after) inventories.set(id, await analyze(source.after));
       state.report = await Bun.file(json).json();
+      state.report!.files = Object.fromEntries(Object.entries(state.report!.files).map(([path, data]) => [relative(root, resolve(cwd, path)).split(sep).join("/"), data]));
       state.functions = mapCoverage(this.review, this.sources, state.report!, inventories);
       state.status = "complete";
     } catch (error) {
       state.status = "error";
-      state.error = `${error instanceof Error ? error.message : error}\nRequires uv, pytest and pytest-cov in the reviewed project's environment. Add pytest-cov to its test dependencies if missing.`;
+      state.error = `${error instanceof Error ? error.message : error}\nThe configured pytest command requires pytest and pytest-cov in its environment.`;
     } finally {
       if (folder) await rm(folder, { recursive: true, force: true });
     }
-  }
-  private async run(args: string[], cwd: string, env = process.env, allowFailure = false) {
-    const proc = Bun.spawn(args, { cwd, env, stdout: "pipe", stderr: "pipe" });
-    const timer = setTimeout(() => proc.kill(), 300_000);
-    const consume = async (stream: ReadableStream<Uint8Array>) => {
-      const decoder = new TextDecoder();
-      for await (const chunk of stream) this.state.output = (this.state.output + decoder.decode(chunk, { stream: true })).slice(-100_000);
-    };
-    try {
-      await Promise.all([consume(proc.stdout), consume(proc.stderr)]);
-      const code = await proc.exited;
-      if (code && !allowFailure) throw new Error(`${args.slice(0, 3).join(" ")} failed (exit ${code}). See run output.`);
-      return code;
-    } finally { clearTimeout(timer); }
   }
 }

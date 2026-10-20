@@ -50,6 +50,7 @@ jobs:
       - run: bun test
       - run: bun run build:binary
       - run: bun scripts/smoke-binary.ts build/${{ matrix.binary }}
+      - run: bun scripts/smoke-binary.ts build/${{ matrix.binary }} --custom-pytest
       - name: Package binary and notices
         shell: bash
         run: |

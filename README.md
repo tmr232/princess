@@ -82,7 +82,22 @@ Upstream engine attribution and pinned revision are in `vendor/explorer/`.
 
 ## On-demand pytest coverage
 
-Open the top-level **Tests & coverage** tab, choose the added or modified tests, and click **Run selected tests with coverage**. Princess runs `uv run pytest <node IDs> --cov=. --cov-context=test --cov-report=` against a temporary Git archive of the reviewed head commit. Your checkout is untouched. The reviewed project must provide pytest and pytest-cov through its uv environment; dependency installation follows normal `uv run` behavior. The runner is fixed for now.
+Open the top-level **Tests & coverage** tab, choose the added or modified tests, and click **Run selected tests with coverage**. By default Princess runs `uv run pytest` with the selected node IDs and coverage arguments against a temporary Git archive of the reviewed head commit. Your checkout is untouched. The command's Python environment must provide pytest and pytest-cov; with the default command, dependency installation follows normal `uv run` behavior.
+
+### Configure pytest for coverage and callgraphs
+
+Both runners share two CLI options:
+
+- `--pytest-command <command>` replaces the base command (default: `uv run pytest`). Princess appends selected tests and its own coverage or tracing arguments. Quoted arguments are supported; this is not a shell script: operators, globs, and environment-variable expansion are not supported. Use an absolute executable path for an existing external virtual environment, and single-quote paths containing backslashes inside the command string.
+- `--pytest-directory <path>` selects a working directory inside the temporary head snapshot, relative to the reviewed repository root (default: `.`). Absolute paths and paths outside the snapshot are rejected. The directory must exist in the head revision, not just in your working tree. Source paths, test IDs, coverage associations, and callgraphs remain repository-relative.
+
+```sh
+bun run review --repo /path/to/repository --base main \
+  --pytest-command "uv run python -m pytest -q" \
+  --pytest-directory packages/backend
+```
+
+Coverage is exported by pytest-cov in the same invocation, so custom commands do not require an additional hard-coded `uv run python` step. uv is only required when your configured command uses it. Coverage still needs pytest-cov; callgraphs need only pytest. Configuration does not run tests automatically—use the existing run buttons.
 
 Tests are detected using conventional `test_*.py` / `*_test.py` filenames and `test*` functions, including methods on `Test*` classes. Removed tests and nested helper functions are excluded. Selecting a parametrized test runs all its cases; results retain individual case IDs. Custom pytest collection naming is not supported yet.
 
@@ -109,7 +124,7 @@ The demo adds bulk pricing and two changed tests. Running both test selectors ex
 
 ## Function traces
 
-In **Tests & coverage → Function traces**, select changed tests and click **Run selected tests with tracing**. This is a separate run from coverage: `uv run pytest <node IDs> -p princess_trace -p no:pytest_cov -o addopts=`. Only uv and pytest are required. The bundled plugin is supplied outside the temporary head snapshot. Default pytest extra arguments (`addopts` / `PYTEST_ADDOPTS`) are cleared for this mode so project defaults do not enable coverage or parallel subprocess workers. Collection/configuration otherwise uses the reviewed project.
+In **Tests & coverage → Function traces**, select changed tests and click **Run selected tests with tracing**. This is a separate run from coverage, using the configured pytest command and directory with `-p princess_trace -p no:pytest_cov -o addopts=` appended. The bundled plugin is supplied outside the temporary head snapshot. Default pytest extra arguments (`addopts` / `PYTEST_ADDOPTS`) are cleared for this mode so project defaults do not enable coverage or parallel subprocess workers. Collection/configuration otherwise uses the reviewed project.
 
 Choose a recorded test case to open a pan-and-zoom call canvas inspired by the call-path bubbles in *Debugger Canvas* (DeLine et al., ICSE 2012). Each Python function activation gets a numbered source block, including unchanged repository functions, repeated calls, and recursive calls. Solid arrows connect callers to callees; call-site lines appear in the blocks. Generator/coroutine resumptions get new blocks with dashed continuation arrows. Use **Reveal calls** to expose the execution sequence, the call-order strip to focus a block, and **Fit canvas** / zoom controls to navigate. Selecting a block provides its full head source. Changed functions are labeled added/modified.
 

@@ -4,6 +4,8 @@ import { CoverageRunner } from "./coverage";
 import { Command } from "commander";
 import { createReview, createInterface } from "./review";
 import { browserFiles } from "./assets";
+import { parsePytestCommand, pytestInvocation } from "./pytestRuntime";
+import { resolve } from "node:path";
 
 const options = new Command()
   .name("princess")
@@ -14,6 +16,8 @@ const options = new Command()
   .option("--base <revision>", "Compare directly against this revision")
   .option("--merge-base <revision>", "Use the merge-base with this branch/revision (default: repository default branch)")
   .option("--head <revision>", "Head revision", "HEAD")
+  .option("--pytest-command <command>", "Base pytest executable and arguments (no shell evaluation)", parsePytestCommand, ["uv", "run", "pytest"])
+  .option("--pytest-directory <path>", "Working directory relative to the reviewed repository snapshot", ".")
   .option(
     "--port <number>",
     "Local HTTP port (0 chooses an available port)",
@@ -29,9 +33,11 @@ try {
   if (!browserFiles.has("/index.html"))
     throw new Error("Build the browser UI first: bun run build");
   const comparison = await resolveComparison(options.repo, options);
+  const pytest = { command: options.pytestCommand, directory: options.pytestDirectory };
+  pytestInvocation(resolve(options.repo), [], pytest);
   const { review, sources } = await createReview(options.repo, comparison.base, comparison.head);
-  const coverage = new CoverageRunner(review, sources);
-  const trace = new TraceRunner(review, sources);
+  const coverage = new CoverageRunner(review, sources, pytest);
+  const trace = new TraceRunner(review, sources, pytest);
   const server = Bun.serve({
     hostname: options.host,
     port,

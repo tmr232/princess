@@ -5,7 +5,7 @@ import { z } from "zod";
 import type { Review } from "./model";
 import type { TestTarget } from "./coverage";
 import { testTargets } from "./testTargets";
-import { snapshot, pytestCommand } from "./pytestRuntime";
+import { snapshot, pytestCommand, pytestInvocation, defaultPytestOptions, type PytestOptions } from "./pytestRuntime";
 import { tracePlugin } from "./assets";
 
 const callSchema = z.object({ id: z.number().int().positive(), functionId: z.string(), parentId: z.number().nullable(), callLine: z.number().nullable(), thread: z.number(), entryOrder: z.number(), exitOrder: z.number().optional(), kind: z.enum(["call", "resume"]), resumeFrom: z.number().nullable(), suspended: z.boolean().optional() });
@@ -18,14 +18,14 @@ export type TraceState = { status: "idle" | "running" | "complete" | "error"; ta
 
 export class TraceRunner {
   state: TraceState;
-  constructor(private review: Review, private sources = new Map<string, { after: string | null }>()) {
+  constructor(private review: Review, private sources = new Map<string, { after: string | null }>(), private pytest: PytestOptions = defaultPytestOptions) {
     this.state = { status: "idle", targets: testTargets(review), selected: [], command: "", output: "", functions: [], tests: [] };
   }
   start(selected: string[]) {
     if (this.state.status === "running") throw new Error("Tracing is already running");
     if (!selected.length || selected.some(id => !this.state.targets.some(target => target.nodeid === id))) throw new Error("Select changed pytest tests from this review");
     const ids = [...new Set(selected)];
-    this.state = { status: "running", targets: this.state.targets, selected: ids, command: `uv run pytest ${ids.map(id => JSON.stringify(id)).join(" ")} -p princess_trace -p no:pytest_cov -o addopts=`, output: "", functions: [], tests: [] };
+    this.state = { status: "running", targets: this.state.targets, selected: ids, command: "", output: "", functions: [], tests: [] };
     void this.execute(ids);
   }
   private async execute(ids: string[]) {
@@ -33,8 +33,9 @@ export class TraceRunner {
     let folder: string | undefined;
     try {
       folder = await mkdtemp(join(tmpdir(), "princess-trace-"));
-      const cwd = join(folder, "repo");
-      await snapshot(this.review.repo, this.review.head, cwd);
+      const root = join(folder, "repo");
+      await snapshot(this.review.repo, this.review.head, root);
+      const { cwd, args } = pytestInvocation(root, ids, this.pytest);
       await Bun.write(join(folder, "princess_trace.py"), Bun.file(tracePlugin));
       const listing = Bun.spawnSync(["git", "ls-tree", "-r", "--name-only", "-z", this.review.head], { cwd: this.review.repo });
       if (listing.exitCode) throw new Error("Unable to list snapshot files");
@@ -42,9 +43,11 @@ export class TraceRunner {
       const manifest = join(folder, "files.json");
       await writeFile(manifest, JSON.stringify(files));
       const output = join(folder, "trace.json");
-      state.exitCode = await pytestCommand(["uv", "run", "pytest", ...ids, "-p", "princess_trace", "-p", "no:pytest_cov", "-o", "addopts="], cwd, {
+      args.push("-p", "princess_trace", "-p", "no:pytest_cov", "-o", "addopts=");
+      state.command = args.map(arg => JSON.stringify(arg)).join(" ");
+      state.exitCode = await pytestCommand(args, cwd, {
         ...process.env, PYTEST_ADDOPTS: "", PYTHONPATH: [folder, process.env.PYTHONPATH].filter(Boolean).join(delimiter),
-        PRINCESS_TRACE_ROOT: cwd, PRINCESS_TRACE_MANIFEST: manifest, PRINCESS_TRACE_OUTPUT: output,
+        PRINCESS_TRACE_ROOT: root, PRINCESS_TRACE_MANIFEST: manifest, PRINCESS_TRACE_OUTPUT: output,
         UV_CACHE_DIR: process.env.UV_CACHE_DIR ?? join(tmpdir(), "princess-uv-cache"),
       }, text => { state.output = (state.output + text).slice(-100_000); });
       const report = traceReportSchema.parse(await Bun.file(output).json());
@@ -62,7 +65,7 @@ export class TraceRunner {
       state.status = "complete";
     } catch (error) {
       state.status = "error";
-      state.error = `${error instanceof Error ? error.message : error}\nTracing requires uv and pytest in the reviewed project.`;
+      state.error = `${error instanceof Error ? error.message : error}\nTracing requires pytest in the configured command's environment.`;
     } finally { if (folder) await rm(folder, { recursive: true, force: true }); }
   }
 }
