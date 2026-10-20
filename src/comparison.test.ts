@@ -54,4 +54,4 @@ test("default merge-base excludes unrelated main changes and preserves explicit 
     git("checkout", "-q", "--orphan", "unrelated"); git("commit", "-qm", "unrelated root"); git("switch", "-q", "feature");
     await expect(resolveComparison(repo, {mergeBase:"unrelated"})).rejects.toThrow("No merge-base");
   } finally { await rm(repo, { recursive:true, force:true }); }
-});
+}, 30_000); // Many Git subprocesses can exceed five seconds on Windows ARM64.

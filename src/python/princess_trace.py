@@ -24,10 +24,11 @@ class Recorder:
     def __init__(self, nodeid, root=ROOT, files=FILES):
         self.trace = {"nodeid": nodeid, "outcome": "unknown", "calls": [], "truncated": False}
         self.root = pathlib.Path(root).resolve()
-        self.allowed = {str(self.root / path): path for path in files}
+        self.allowed = {os.path.normcase(os.path.realpath(self.root / path)): path for path in files}
         self.frames = {}
         self.suspended = {}
         self.codes = {}
+        self.yield_offsets = {}
         self.documents = {}
         self.threads = {}
         self.lock = threading.RLock()
@@ -37,7 +38,7 @@ class Recorder:
     def function(self, code):
         if code in self.codes:
             return self.codes[code]
-        path = self.allowed.get(os.path.abspath(code.co_filename))
+        path = self.allowed.get(os.path.normcase(os.path.realpath(code.co_filename)))
         if path is None or code.co_name == "<module>":
             self.codes[code] = None
             return None
@@ -62,6 +63,15 @@ class Recorder:
         function_id = f"{path}:{start}:{name}"
         FUNCTIONS[function_id] = {"id": function_id, "name": name, "path": path, "line": start,
                                   "endLine": end, "source": "\n".join(lines[start - 1:end])}
+        # Python 3.13 profiles a suspension at RESUME, earlier versions at YIELD.
+        offsets = set()
+        previous_yield = False
+        for instruction in dis.get_instructions(code):
+            is_yield = instruction.opname in ("YIELD_VALUE", "YIELD_FROM")
+            if is_yield or (previous_yield and instruction.opname == "RESUME"):
+                offsets.add(instruction.offset)
+            previous_yield = is_yield
+        self.yield_offsets[code] = offsets
         self.codes[code] = function_id
         return function_id
 
@@ -80,8 +90,7 @@ class Recorder:
                 return
             self.sequence += 1
             call["exitOrder"] = self.sequence
-            opcode = dis.opname[frame.f_code.co_code[frame.f_lasti]] if frame.f_lasti >= 0 else ""
-            if opcode in ("YIELD_VALUE", "YIELD_FROM"):
+            if frame.f_lasti in self.yield_offsets[frame.f_code]:
                 call["suspended"] = True
                 self.suspended[identity] = (frame, call["id"])
             return

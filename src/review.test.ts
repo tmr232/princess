@@ -161,7 +161,7 @@ def stable(x):
   } finally {
     await rm(repo, { recursive: true, force: true });
   }
-});
+}, 30_000); // Snapshot analysis invokes Git and ast-grep repeatedly on native runners.
 
 test("projects module and class interfaces with independent privacy and docstring filters", async () => {
   const source = `# leading comment
